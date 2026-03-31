@@ -20,3 +20,16 @@ build/
 
 # Env files
 .env*
+
+# Internal dev docs (not part of marketplace plugin)
+MainDocs/
+docs/
+CLAUDE.md
+CHANGELOG.md
+scaffolds/
+scripts/
+
+# Build artifacts
+*.egg-info/
+__pycache__/
+*.pyc

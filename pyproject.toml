@@ -1,7 +1,19 @@
 [project]
 name = "egtsr-runtime"
 version = "0.1.0"
+description = "Execution-Grounded Task-State Runtime for Claude Code"
 requires-python = ">=3.12"
+license = {text = "MIT"}
 
 [project.scripts]
-egtsr = "egtsr_runtime.ops.recovery_cli:main"
+egtsr = "egtsr_runtime.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["egtsr_runtime*"]
+
+[tool.setuptools.package-data]
+"egtsr_runtime.db" = ["schema.sql"]

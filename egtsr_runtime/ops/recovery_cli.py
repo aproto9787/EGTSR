@@ -11,7 +11,13 @@ from egtsr_runtime.constants import (
     PHASE1_HOOKS,
     RESUME_GATE,
 )
-from egtsr_runtime.ops.health import HealthChecker
+
+_EXPECTED_HOOK_COMMANDS = {
+    "SessionStart": "python3 -m egtsr_runtime.hooks.entrypoint session_start",
+    "UserPromptSubmit": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit",
+    "PostToolUse": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use",
+    "SessionEnd": "python3 -m egtsr_runtime.hooks.entrypoint session_end",
+}
 
 
 class RecoveryCLI:
@@ -42,7 +48,7 @@ class RecoveryCLI:
         checks.append(hooks_result)
         if not hooks_result["ok"]:
             issues.append(hooks_result["detail"])
-            safe_fixes.append("install scaffolds/standalone/.claude/hooks.json")
+            safe_fixes.append("run `egtsr setup` to register EGTSR hooks")
 
         return {"checks": checks, "issues": issues, "safe_fixes": safe_fixes}
 
@@ -67,27 +73,85 @@ class RecoveryCLI:
         return {"name": "artifacts", "ok": ok, "missing": missing}
 
     def _check_hooks_config(self, repo_root: str) -> dict:
-        hooks_path = os.path.join(repo_root, ".claude", "hooks.json")
+        hooks_path = self._find_hooks_config(repo_root)
+        if hooks_path is None:
+            claude_dir = os.path.join(repo_root, ".claude")
+            return {
+                "name": "hooks_config",
+                "ok": False,
+                "detail": (
+                    "hooks config missing: expected one of "
+                    f"{os.path.join(claude_dir, 'settings.local.json')} or "
+                    f"{os.path.join(claude_dir, 'hooks.json')}"
+                ),
+            }
+        return self._validate_hooks_config(hooks_path)
+
+    def _find_hooks_config(self, repo_root: str) -> str | None:
+        claude_dir = os.path.join(repo_root, ".claude")
+        for filename in ("settings.local.json", "hooks.json"):
+            candidate = os.path.join(claude_dir, filename)
+            if os.path.exists(candidate):
+                return candidate
+        return None
+
+    def _validate_hooks_config(self, hooks_path: str) -> dict:
         if not os.path.exists(hooks_path):
             return {
                 "name": "hooks_config",
                 "ok": False,
-                "detail": f"hooks.json missing: {hooks_path}",
+                "detail": f"hooks config missing: {hooks_path}",
             }
         try:
             with open(hooks_path) as f:
                 config = json.load(f)
             hooks = config.get("hooks", {})
-            missing_hooks = [h for h in PHASE1_HOOKS if h not in hooks]
+            missing_hooks = [
+                hook_name
+                for hook_name in PHASE1_HOOKS
+                if not self._has_registered_command(
+                    hooks.get(hook_name),
+                    _EXPECTED_HOOK_COMMANDS[hook_name],
+                )
+            ]
             if missing_hooks:
                 return {
                     "name": "hooks_config",
                     "ok": False,
-                    "detail": f"missing hooks: {missing_hooks}",
+                    "detail": f"missing hooks in {hooks_path}: {missing_hooks}",
                 }
-            return {"name": "hooks_config", "ok": True, "detail": "all hooks configured"}
+            return {
+                "name": "hooks_config",
+                "ok": True,
+                "detail": f"all hooks configured in {hooks_path}",
+            }
         except Exception as exc:
-            return {"name": "hooks_config", "ok": False, "detail": f"hooks.json invalid: {exc}"}
+            return {
+                "name": "hooks_config",
+                "ok": False,
+                "detail": f"hooks config invalid ({hooks_path}): {exc}",
+            }
+
+    @staticmethod
+    def _has_registered_command(entries, expected_command: str) -> bool:
+        if not isinstance(entries, list):
+            return False
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            nested_hooks = entry.get("hooks")
+            if isinstance(nested_hooks, list):
+                if any(
+                    isinstance(hook, dict)
+                    and hook.get("type") == "command"
+                    and hook.get("command") == expected_command
+                    for hook in nested_hooks
+                ):
+                    return True
+                continue
+            if entry.get("type") == "command" and entry.get("command") == expected_command:
+                return True
+        return False
 
 
 def main() -> None:

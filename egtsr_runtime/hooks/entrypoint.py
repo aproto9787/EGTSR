@@ -1,6 +1,9 @@
 """CLI entrypoint for hook execution.
+
 Usage: python3 -m egtsr_runtime.hooks.entrypoint <hook_name>
-Reads stdin JSON, dispatches to appropriate handler, writes stdout JSON.
+
+Imports are package-absolute so this works from an installed wheel/editable
+install without setting PYTHONPATH manually.
 """
 from __future__ import annotations
 

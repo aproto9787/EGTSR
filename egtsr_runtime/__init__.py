@@ -9,7 +9,7 @@ from egtsr_runtime.enums import (
 from egtsr_runtime.jsonio import json_stdout
 from egtsr_runtime.paths import RuntimePaths, ensure_runtime_dirs
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"
 
 __all__ = [
     "__version__",

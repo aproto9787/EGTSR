@@ -58,6 +58,21 @@ def _make_hooks_config(repo_root: str) -> None:
         json.dump(hooks, f)
 
 
+def _make_settings_local_config(repo_root: str) -> None:
+    claude_dir = os.path.join(repo_root, ".claude")
+    os.makedirs(claude_dir, exist_ok=True)
+    hooks = {
+        "hooks": {
+            "SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint session_start"}]}],
+            "UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit"}]}],
+            "PostToolUse": [{"matcher": "", "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use"}]}],
+            "SessionEnd": [{"matcher": "", "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint session_end"}]}],
+        }
+    }
+    with open(os.path.join(claude_dir, "settings.local.json"), "w") as f:
+        json.dump(hooks, f)
+
+
 class TestRecoveryCLI(unittest.TestCase):
     def test_doctor_healthy(self):
         """Doctor with valid DB/artifacts returns no issues"""
@@ -92,6 +107,15 @@ class TestRecoveryCLI(unittest.TestCase):
         self.assertNotIn("force", result_str)
         self.assertNotIn("unblock", result_str)
         self.assertNotIn("unsafe", result_str)
+
+    def test_doctor_accepts_settings_local_hooks(self):
+        """Doctor accepts plugin-installed settings.local.json hook config."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _make_valid_egtsr(tmp)
+            _make_settings_local_config(tmp)
+            cli = RecoveryCLI()
+            result = cli.doctor(tmp)
+        self.assertEqual(result["issues"], [])
 
     def test_health_checker_all_ok(self):
         """HealthChecker with valid setup returns overall=True"""

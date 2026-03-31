@@ -1,0 +1,21 @@
+{
+  "name": "aproto9787-egtsr",
+  "owner": {
+    "name": "argoss"
+  },
+  "metadata": {
+    "description": "EGTSR — Execution-Grounded Task-State Runtime for Claude Code",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "egtsr",
+      "source": ".",
+      "description": "Obligation tracking, stale quarantine, and resume safety for Claude Code",
+      "version": "0.1.0",
+      "author": {
+        "name": "argoss"
+      }
+    }
+  ]
+}

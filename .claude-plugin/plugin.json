@@ -1,65 +1,11 @@
 {
   "name": "egtsr",
-  "displayName": "EGTSR Runtime",
-  "version": "0.1.0",
   "description": "Execution-Grounded Task-State Runtime — obligation tracking, stale quarantine, and resume safety for Claude Code",
-  "author": "argoss",
-  "license": "MIT",
-  "mcp": {
-    "command": "python3",
-    "args": ["-m", "mcp_server.server"],
-    "transport": "stdio"
+  "version": "0.1.0",
+  "author": {
+    "name": "argoss"
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint session_start"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint session_end"
-          }
-        ]
-      }
-    ]
-  },
-  "skills": [
-    "skills/egtsr-setup.md",
-    "skills/egtsr-status.md",
-    "skills/egtsr-inspect.md",
-    "skills/egtsr-doctor.md"
-  ]
+  "homepage": "https://github.com/aproto9787/EGTSR",
+  "repository": "https://github.com/aproto9787/EGTSR",
+  "license": "MIT"
 }

@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint session_start"}]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit"}]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use"}]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "python3 -m egtsr_runtime.hooks.entrypoint session_end"}]
+      }
+    ]
+  }
+}

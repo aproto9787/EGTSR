@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "egtsr": {
+      "command": "python3",
+      "args": ["-m", "mcp_server.server"],
+      "description": "EGTSR inspection tools — read-only session state queries"
+    }
+  }
+}

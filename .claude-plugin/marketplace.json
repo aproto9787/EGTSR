@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "egtsr",
-      "source": ".",
+      "source": "./",
       "description": "Obligation tracking, stale quarantine, and resume safety for Claude Code",
       "version": "0.1.0",
       "author": {

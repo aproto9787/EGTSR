@@ -8,6 +8,9 @@ build/
 # EGTSR runtime artifacts (generated per-session)
 .egtsr/
 
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
+
 # IDE
 .vscode/
 .idea/

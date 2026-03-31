@@ -24,6 +24,32 @@ class SqliteAttemptFamilyRepository:
         ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def get_by_signature(self, session_id: str, signature: str) -> AttemptFamily | None:
+        row = self.conn.execute(
+            "SELECT * FROM attempt_families WHERE session_id = ? AND signature = ?",
+            (session_id, signature),
+        ).fetchone()
+        return self._from_row(row) if row is not None else None
+
+    def list_recent_failures_by_obligation_ids(
+        self, obligation_ids: list[str], limit_per_obligation: int = 5
+    ) -> list[AttemptFamily]:
+        if not obligation_ids:
+            return []
+        placeholders = ",".join("?" for _ in obligation_ids)
+        rows = self.conn.execute(
+            f"""SELECT * FROM (
+                    SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY obligation_id ORDER BY updated_at DESC
+                    ) AS rn
+                    FROM attempt_families
+                    WHERE obligation_id IN ({placeholders}) AND last_outcome = 'fail'
+                ) WHERE rn <= ?
+                ORDER BY obligation_id, updated_at DESC""",  # noqa: S608
+            (*obligation_ids, limit_per_obligation),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
     def upsert(self, family: AttemptFamily) -> None:
         self.conn.execute(
             """

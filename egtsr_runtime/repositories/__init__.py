@@ -5,6 +5,12 @@ from egtsr_runtime.repositories.events import SqliteEventRepository
 from egtsr_runtime.repositories.evidence import SqliteEvidenceRepository
 from egtsr_runtime.repositories.invalidations import SqliteInvalidationRepository
 from egtsr_runtime.repositories.obligations import SqliteObligationRepository
+from egtsr_runtime.repositories.projections import (
+    SqliteAssertionEvidenceLinkRepository,
+    SqliteObligationFrontierRepository,
+    SqlitePathSubjectIndexRepository,
+    SqliteSessionFrontierRepository,
+)
 from egtsr_runtime.repositories.protocols import (
     AssertionRepository,
     AttemptFamilyRepository,
@@ -31,14 +37,18 @@ __all__ = [
     "ObligationRepository",
     "RepoStateRepository",
     "SessionRepository",
+    "SqliteAssertionEvidenceLinkRepository",
     "SqliteAssertionRepository",
     "SqliteAttemptFamilyRepository",
     "SqliteCapsuleRepository",
     "SqliteEventRepository",
     "SqliteEvidenceRepository",
     "SqliteInvalidationRepository",
+    "SqliteObligationFrontierRepository",
     "SqliteObligationRepository",
+    "SqlitePathSubjectIndexRepository",
     "SqliteRepoStateRepository",
+    "SqliteSessionFrontierRepository",
     "SqliteSessionRepository",
     "SqliteVerifyRepository",
     "VerifyRepository",

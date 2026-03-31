@@ -25,6 +25,55 @@ class SqliteInvalidationRepository:
         ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def list_live_for_assertions(self, assertion_ids: list[str]) -> list[InvalidationTicket]:
+        if not assertion_ids:
+            return []
+        placeholders = ",".join("?" for _ in assertion_ids)
+        rows = self.conn.execute(
+            f"""SELECT * FROM invalidation_tickets
+                WHERE subject_type = 'assertion' AND subject_id IN ({placeholders}) AND status = ?
+                ORDER BY created_at, id""",  # noqa: S608
+            (*assertion_ids, InvalidationStatus.LIVE.value),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def list_live_for_obligations(self, obligation_ids: list[str]) -> list[InvalidationTicket]:
+        if not obligation_ids:
+            return []
+        placeholders = ",".join("?" for _ in obligation_ids)
+        rows = self.conn.execute(
+            f"""SELECT * FROM invalidation_tickets
+                WHERE subject_type = 'obligation' AND subject_id IN ({placeholders}) AND status = ?
+                ORDER BY created_at, id""",  # noqa: S608
+            (*obligation_ids, InvalidationStatus.LIVE.value),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def bulk_upsert(self, tickets: list[InvalidationTicket]) -> None:
+        if not tickets:
+            return
+        for ticket in tickets:
+            self.upsert(ticket)
+
+    def list_live_for_session(self, session_id: str) -> list[InvalidationTicket]:
+        rows = self.conn.execute(
+            "SELECT * FROM invalidation_tickets WHERE session_id = ? AND status = ? ORDER BY created_at, id",
+            (session_id, InvalidationStatus.LIVE.value),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def list_live_for_evidence_ids(self, evidence_ids: list[str]) -> list[InvalidationTicket]:
+        if not evidence_ids:
+            return []
+        placeholders = ",".join("?" for _ in evidence_ids)
+        rows = self.conn.execute(
+            f"""SELECT * FROM invalidation_tickets
+                WHERE subject_type = 'evidence' AND subject_id IN ({placeholders}) AND status = ?
+                ORDER BY created_at, id""",  # noqa: S608
+            (*evidence_ids, InvalidationStatus.LIVE.value),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
     def upsert(self, ticket: InvalidationTicket) -> None:
         self.conn.execute(
             """

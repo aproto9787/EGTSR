@@ -25,6 +25,7 @@ from egtsr_runtime.constants import (
     REPORTS_DIR,
     RESUME_GATE,
 )
+from egtsr_runtime.db.runtime import SqliteRuntime
 from egtsr_runtime.db.uow import SqliteUnitOfWork
 from egtsr_runtime.mcp.inspect import InspectService
 from egtsr_runtime.ops.health import HealthChecker
@@ -228,23 +229,28 @@ class EGTSRMCPServer:
             raise ValueError("session_id is required")
 
         db_path = self._db_path or self._resolve_runtime_paths(self._project_dir).db_path
-        with SqliteUnitOfWork(db_path) as uow:
-            service = InspectService(uow)
-            if tool_name == "egtsr_inspect_obligations":
-                return service.inspect_obligations(session_id)
-            if tool_name == "egtsr_inspect_stale":
-                return service.inspect_stale(session_id)
-            if tool_name == "egtsr_inspect_capsule":
-                return service.inspect_capsule(session_id)
-            if tool_name == "egtsr_resume_status":
-                return service.resume_status(session_id)
-            if tool_name == "egtsr_session_summary":
-                return {
-                    "obligations": service.inspect_obligations(session_id),
-                    "stale": service.inspect_stale(session_id),
-                    "capsule": service.inspect_capsule(session_id),
-                    "resume": service.resume_status(session_id),
-                }
+        runtime = SqliteRuntime(db_path)
+        conn = runtime.boot()
+        try:
+            with SqliteUnitOfWork(conn) as uow:
+                service = InspectService(uow)
+                if tool_name == "egtsr_inspect_obligations":
+                    return service.inspect_obligations(session_id)
+                if tool_name == "egtsr_inspect_stale":
+                    return service.inspect_stale(session_id)
+                if tool_name == "egtsr_inspect_capsule":
+                    return service.inspect_capsule(session_id)
+                if tool_name == "egtsr_resume_status":
+                    return service.resume_status(session_id)
+                if tool_name == "egtsr_session_summary":
+                    return {
+                        "obligations": service.inspect_obligations(session_id),
+                        "stale": service.inspect_stale(session_id),
+                        "capsule": service.inspect_capsule(session_id),
+                        "resume": service.resume_status(session_id),
+                    }
+        finally:
+            runtime.shutdown()
 
         raise ValueError(f"Unknown tool: {tool_name}")
 

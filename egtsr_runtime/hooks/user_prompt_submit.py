@@ -12,6 +12,7 @@ from egtsr_runtime.compiler import (
     DecisionCapsuleCompiler,
     DecisionCapsuleV0,
     DecisionCompilerInput,
+    IncrementalDecisionCompiler,
     PromptIntentClassifier,
 )
 from egtsr_runtime.enums import VerifyPhase
@@ -93,8 +94,7 @@ class UserPromptSubmitService:
         stored_capsule_id = None
 
         try:
-            compiler_input = self._build_compiler_input(envelope.session_id)
-            compiled_capsule = self._compiler.compile(compiler_input)
+            compiled_capsule = self._compile_capsule(envelope.session_id)
             audit_report = self._audit_engine.audit(compiled_capsule)
             stored_capsule_id = self._store_capsule(
                 envelope=envelope,
@@ -189,6 +189,39 @@ class UserPromptSubmitService:
             intent=intent,
             capsule=compiled_capsule,
         )
+
+    def _compile_capsule(self, session_id: str) -> DecisionCapsuleV0:
+        """Compile a decision capsule using incremental, shadow, or legacy path."""
+        from egtsr_runtime.config import is_shadow_mode
+
+        if is_shadow_mode(self._config):
+            return self._compile_shadow(session_id)
+        if self._config.enable_incremental_compile:
+            inc = IncrementalDecisionCompiler(self._uow, self._config.max_decision_tokens)
+            result = inc.compile(session_id)
+            return result.capsule
+        compiler_input = self._build_compiler_input(session_id)
+        return self._compiler.compile(compiler_input)
+
+    def _compile_shadow(self, session_id: str) -> DecisionCapsuleV0:
+        """Dual-run compile: legacy + incremental, diff, use legacy result."""
+        from egtsr_runtime.compat.shadow_runner import (
+            ShadowCompileRunner,
+            write_shadow_diff_report,
+        )
+
+        runner = ShadowCompileRunner(self._uow, self._config)
+        shadow_result = runner.compile(session_id)
+
+        write_shadow_diff_report(
+            self._paths.reports_dir,
+            hook_name="user_prompt_submit",
+            session_id=session_id,
+            compile_result=shadow_result,
+        )
+
+        # Always use legacy capsule for safety
+        return shadow_result.legacy_capsule
 
     def _build_compiler_input(self, session_id: str) -> DecisionCompilerInput:
         return DecisionCompilerInput(

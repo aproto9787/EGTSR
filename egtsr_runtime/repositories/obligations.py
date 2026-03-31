@@ -36,6 +36,36 @@ class SqliteObligationRepository:
         ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def list_open_ids(self, session_id: str) -> list[str]:
+        rows = self.conn.execute(
+            """
+            SELECT id FROM obligations
+            WHERE session_id = ? AND status != ?
+            ORDER BY created_at, id
+            """,
+            (session_id, ObligationStatus.VERIFIED.value),
+        ).fetchall()
+        return [row["id"] for row in rows]
+
+    def list_by_ids_ordered(self, session_id: str, obligation_ids: list[str]) -> list[Obligation]:
+        if not obligation_ids:
+            return []
+        placeholders = ",".join("?" for _ in obligation_ids)
+        rows = self.conn.execute(
+            f"SELECT * FROM obligations WHERE session_id = ? AND id IN ({placeholders}) ORDER BY created_at, id",  # noqa: S608
+            (session_id, *obligation_ids),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def bulk_mark_reopened(self, obligation_ids: list[str], updated_at: str) -> None:
+        if not obligation_ids:
+            return
+        placeholders = ",".join("?" for _ in obligation_ids)
+        self.conn.execute(
+            f"UPDATE obligations SET status = ?, updated_at = ? WHERE id IN ({placeholders})",  # noqa: S608
+            (ObligationStatus.REOPENED.value, updated_at, *obligation_ids),
+        )
+
     def upsert(self, obligation: Obligation) -> None:
         self.conn.execute(
             """

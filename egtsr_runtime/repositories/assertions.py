@@ -25,6 +25,54 @@ class SqliteAssertionRepository:
         ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def list_by_ids(self, assertion_ids: list[str]) -> list[Assertion]:
+        if not assertion_ids:
+            return []
+        placeholders = ",".join("?" for _ in assertion_ids)
+        rows = self.conn.execute(
+            f"SELECT * FROM assertions WHERE id IN ({placeholders}) ORDER BY created_at, id",  # noqa: S608
+            assertion_ids,
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def list_active_by_obligation_ids(self, obligation_ids: list[str]) -> list[Assertion]:
+        if not obligation_ids:
+            return []
+        placeholders = ",".join("?" for _ in obligation_ids)
+        rows = self.conn.execute(
+            f"""SELECT * FROM assertions
+                WHERE obligation_id IN ({placeholders}) AND status != ?
+                ORDER BY obligation_id, created_at, id""",  # noqa: S608
+            (*obligation_ids, AssertionStatus.STALE.value),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def bulk_upsert(self, assertions: list[Assertion]) -> None:
+        if not assertions:
+            return
+        for assertion in assertions:
+            self.upsert(assertion)
+
+    def bulk_mark_stale(self, assertion_ids: list[str], updated_at: str) -> None:
+        if not assertion_ids:
+            return
+        placeholders = ",".join("?" for _ in assertion_ids)
+        self.conn.execute(
+            f"UPDATE assertions SET status = ?, updated_at = ? WHERE id IN ({placeholders})",  # noqa: S608
+            (AssertionStatus.STALE.value, updated_at, *assertion_ids),
+        )
+
+    def list_obligation_ids_for_assertions(self, assertion_ids: list[str]) -> list[str]:
+        if not assertion_ids:
+            return []
+        placeholders = ",".join("?" for _ in assertion_ids)
+        rows = self.conn.execute(
+            f"""SELECT DISTINCT obligation_id FROM assertions
+                WHERE id IN ({placeholders}) AND obligation_id IS NOT NULL""",  # noqa: S608
+            assertion_ids,
+        ).fetchall()
+        return [row["obligation_id"] for row in rows]
+
     def upsert(self, assertion: Assertion) -> None:
         self.conn.execute(
             """

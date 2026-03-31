@@ -42,6 +42,22 @@ class SqliteEvidenceRepository:
         ).fetchone()
         return self._from_row(row) if row is not None else None
 
+    def list_by_ids(self, evidence_ids: list[str]) -> list[Evidence]:
+        if not evidence_ids:
+            return []
+        placeholders = ",".join("?" for _ in evidence_ids)
+        rows = self.conn.execute(
+            f"SELECT * FROM evidence WHERE id IN ({placeholders}) ORDER BY created_at, id",  # noqa: S608
+            evidence_ids,
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def bulk_create(self, evidence_items: list[Evidence]) -> None:
+        if not evidence_items:
+            return
+        for item in evidence_items:
+            self.create(item)
+
     def list_for_session(self, session_id: str) -> list[Evidence]:
         rows = self.conn.execute(
             "SELECT * FROM evidence WHERE session_id = ? ORDER BY created_at, id",

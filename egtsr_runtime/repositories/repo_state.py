@@ -25,6 +25,28 @@ class SqliteRepoStateRepository:
             last_scan_at=row["last_scan_at"],
         )
 
+    def mark_dirty(self, session_id: str, changed_files: list[str], last_scan_at: str) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO repo_state (session_id, head_hash, dirty, changed_files_json, last_scan_at)
+            VALUES (?, '', 1, ?, ?)
+            ON CONFLICT(session_id) DO UPDATE SET
+                dirty = 1,
+                changed_files_json = excluded.changed_files_json,
+                last_scan_at = excluded.last_scan_at
+            """,
+            (session_id, dump_json(changed_files), last_scan_at),
+        )
+
+    def clear_dirty(self, session_id: str, last_scan_at: str) -> None:
+        self.conn.execute(
+            """
+            UPDATE repo_state SET dirty = 0, changed_files_json = '[]', last_scan_at = ?
+            WHERE session_id = ?
+            """,
+            (last_scan_at, session_id),
+        )
+
     def upsert(self, repo_state: RepoState) -> None:
         self.conn.execute(
             """

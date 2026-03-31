@@ -8,3 +8,8 @@ RESUME_GATE = "resume_gate.json"
 RAW_EVENTS_DIR = "raw_events"
 DEBUG_DIR = "debug"
 REPORTS_DIR = "reports"
+
+# Daemon
+DAEMON_DIR = "daemon"
+DAEMON_CONTROL_FILE = "control.json"
+DAEMON_SOCKET_NAME = "egtsr.sock"

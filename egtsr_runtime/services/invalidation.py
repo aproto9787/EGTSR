@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from egtsr_runtime.enums import AssertionStatus, InvalidationStatus, ObligationStatus
 from egtsr_runtime.models import InvalidationTicket
+from egtsr_runtime.utils.paths import normalize_path as _shared_normalize_path
 
 
 @dataclass(slots=True)
@@ -17,15 +17,30 @@ class InvalidationResult:
 
 
 class FileTouchInvalidationService:
-    def __init__(self, uow):
+    def __init__(self, uow, *, enable_reverse_index: bool = False):
         self._uow = uow
+        self._enable_reverse_index = enable_reverse_index
 
     def apply(self, session_id: str, changed_files: list[str]) -> InvalidationResult:
-        """Apply file-touch invalidation v0."""
+        """Apply file-touch invalidation.
+
+        When ``enable_reverse_index`` is True, uses projection tables
+        (path_subject_index + assertion_evidence_links) for bounded
+        lookups instead of session-wide scans.
+        """
         normalized_changed_files = self._normalize_changed_files(changed_files)
         if not normalized_changed_files:
             return InvalidationResult()
 
+        if self._enable_reverse_index:
+            return self._apply_reverse_index(session_id, normalized_changed_files)
+        return self._apply_legacy(session_id, normalized_changed_files)
+
+    # ------------------------------------------------------------------
+    # Legacy path (session-wide scan)
+    # ------------------------------------------------------------------
+
+    def _apply_legacy(self, session_id: str, normalized_changed_files: list[str]) -> InvalidationResult:
         impacted_assertions = self._find_impacted_assertions(session_id, normalized_changed_files)
         if not impacted_assertions:
             return InvalidationResult()
@@ -86,6 +101,128 @@ class FileTouchInvalidationService:
 
         return result
 
+    # ------------------------------------------------------------------
+    # Reverse-index path (bounded queries only)
+    # ------------------------------------------------------------------
+
+    def _apply_reverse_index(self, session_id: str, normalized_changed_files: list[str]) -> InvalidationResult:
+        """Reverse-index invalidation: no session-wide scans."""
+        # 1. Find impacted assertion IDs via path_subject_index
+        impacted_assertion_ids = set(
+            self._uow.path_subject_index.list_subject_ids_for_paths(
+                session_id, normalized_changed_files, "assertion"
+            )
+        )
+
+        # 2. Find impacted evidence IDs → expand to assertion IDs via links
+        impacted_evidence_ids = self._uow.path_subject_index.list_subject_ids_for_paths(
+            session_id, normalized_changed_files, "evidence"
+        )
+        if impacted_evidence_ids:
+            linked_assertion_ids = self._uow.assertion_evidence_links.list_assertion_ids_for_evidences(
+                impacted_evidence_ids
+            )
+            impacted_assertion_ids.update(linked_assertion_ids)
+
+        if not impacted_assertion_ids:
+            return InvalidationResult()
+
+        # 3. Fetch impacted assertions (targeted, no session scan)
+        all_impacted = self._uow.assertions.list_by_ids(list(impacted_assertion_ids))
+        active_assertions = [a for a in all_impacted if a.status != AssertionStatus.STALE]
+
+        if not active_assertions:
+            return InvalidationResult()
+
+        # 4. Build targeted evidence map for trigger_ref calculation
+        needed_evidence_ids: set[str] = set()
+        for assertion in active_assertions:
+            needed_evidence_ids.update(assertion.evidence_ids)
+        evidence_items = self._uow.evidence.list_by_ids(list(needed_evidence_ids))
+        evidence_by_id = {e.id: e for e in evidence_items}
+
+        result = InvalidationResult()
+        now = self._now()
+
+        # 5. Create assertion invalidation tickets (bulk)
+        assertion_tickets: list[InvalidationTicket] = []
+        stale_ids: list[str] = []
+        for assertion in active_assertions:
+            trigger_ref = self._find_trigger_ref(assertion, normalized_changed_files, evidence_by_id)
+            ticket = InvalidationTicket(
+                id=uuid.uuid4().hex,
+                session_id=session_id,
+                subject_type="assertion",
+                subject_id=assertion.id,
+                trigger_kind="file_touch",
+                trigger_ref=trigger_ref,
+                status=InvalidationStatus.LIVE,
+                created_at=now,
+                updated_at=now,
+            )
+            assertion_tickets.append(ticket)
+            stale_ids.append(assertion.id)
+            result.invalidation_ticket_ids.append(ticket.id)
+            result.stale_assertion_ids.append(assertion.id)
+
+        self._uow.invalidations.bulk_upsert(assertion_tickets)
+        self._uow.assertions.bulk_mark_stale(stale_ids, now)
+
+        # 6. Find reopen candidates (targeted — no session scan)
+        impacted_obligation_ids = {a.obligation_id for a in active_assertions if a.obligation_id}
+
+        if impacted_obligation_ids:
+            obligations = self._uow.obligations.list_by_ids_ordered(
+                session_id, list(impacted_obligation_ids)
+            )
+            reopen_candidates = [o for o in obligations if o.status == ObligationStatus.VERIFIED]
+
+            stale_assertions_by_obligation = {
+                a.obligation_id: a for a in active_assertions if a.obligation_id
+            }
+
+            obligation_tickets: list[InvalidationTicket] = []
+            reopen_ids: list[str] = []
+            for obligation in reopen_candidates:
+                related_assertion = stale_assertions_by_obligation.get(obligation.id)
+                trigger_ref = None
+                if related_assertion:
+                    trigger_ref = self._find_trigger_ref(
+                        related_assertion, normalized_changed_files, evidence_by_id
+                    )
+                ticket = InvalidationTicket(
+                    id=uuid.uuid4().hex,
+                    session_id=session_id,
+                    subject_type="obligation",
+                    subject_id=obligation.id,
+                    trigger_kind="file_touch",
+                    trigger_ref=trigger_ref,
+                    status=InvalidationStatus.LIVE,
+                    created_at=now,
+                    updated_at=now,
+                )
+                obligation_tickets.append(ticket)
+                reopen_ids.append(obligation.id)
+                result.invalidation_ticket_ids.append(ticket.id)
+                result.reopened_obligation_ids.append(obligation.id)
+
+            self._uow.invalidations.bulk_upsert(obligation_tickets)
+            if reopen_ids:
+                self._uow.obligations.bulk_mark_reopened(reopen_ids, now)
+
+            # 7. Mark obligation frontier dirty for all impacted obligations
+            from egtsr_runtime.services.projections import mark_obligation_frontier_dirty
+
+            conn = self._uow.conn
+            for obl_id in impacted_obligation_ids:
+                mark_obligation_frontier_dirty(conn, obl_id, "file_touch")
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Legacy helpers (used by _apply_legacy)
+    # ------------------------------------------------------------------
+
     def _find_impacted_assertions(self, session_id: str, changed_files: list[str]) -> list:
         """Find assertions impacted by changed files."""
         all_assertions = self._uow.assertions.list_for_session(session_id)
@@ -121,6 +258,10 @@ class FileTouchInvalidationService:
 
     def _evidence_by_id(self, session_id: str) -> dict[str, object]:
         return {item.id: item for item in self._uow.evidence.list_for_session(session_id)}
+
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
 
     def _assertion_has_matching_evidence(self, assertion, evidence_by_id: dict[str, object], changed_set: set[str]) -> bool:
         for evidence_id in assertion.evidence_ids:
@@ -166,12 +307,7 @@ class FileTouchInvalidationService:
 
     @staticmethod
     def _normalize_path(path: str | None) -> str:
-        if path is None:
-            return ""
-        cleaned = str(path).strip()
-        if not cleaned:
-            return ""
-        return os.path.normpath(cleaned)
+        return _shared_normalize_path(path)
 
     @staticmethod
     def _now() -> str:

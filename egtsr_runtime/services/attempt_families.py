@@ -24,10 +24,7 @@ class AttemptFamilyService:
 
         scope = sorted(touched_files)
         signature = self.compute_signature(obligation_id, scope)
-        existing = next(
-            (family for family in self._uow.attempt_families.list_for_session(session_id) if family.signature == signature),
-            None,
-        )
+        existing = self._uow.attempt_families.get_by_signature(session_id, signature)
         now = datetime.now(timezone.utc).isoformat()
         summary = self._build_summary(outcome=outcome, touched_files=scope, excerpt=excerpt)
 

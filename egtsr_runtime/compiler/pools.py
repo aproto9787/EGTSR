@@ -10,19 +10,22 @@ NO_LIVE_EVIDENCE_PLACEHOLDER = "[No live evidence — READ REQUIRED]"
 
 
 
-def build_obligation_pools(
+def build_obligation_block(
     obligation: Obligation,
+    obligation_assertions: list,
     evidence: list,
-    assertions: list,
     invalidation_tickets: list,
     attempt_families: list,
 ) -> ObligationBlock:
-    """Build evidence pools for a single obligation."""
+    """Build evidence pools from (possibly pre-sliced) data.
+
+    ``obligation_assertions`` must already be filtered to this obligation
+    and exclude stale assertions.  ``evidence``, ``invalidation_tickets``,
+    and ``attempt_families`` may be a broader pool — the function filters
+    internally per assertion/evidence/obligation ID.
+    """
 
     evidence_by_id = {item.id: item for item in evidence}
-    obligation_assertions = [
-        item for item in assertions if item.obligation_id == obligation.id and item.status != AssertionStatus.STALE
-    ]
     supported_exists = any(item.status == AssertionStatus.SUPPORTED for item in obligation_assertions)
 
     positive_items: list[str] = []
@@ -65,6 +68,31 @@ def build_obligation_pools(
         positive_items=positive_items,
         negative_items=negative_items,
         uncertainty_items=uncertainty_items,
+    )
+
+
+def build_obligation_pools(
+    obligation: Obligation,
+    evidence: list,
+    assertions: list,
+    invalidation_tickets: list,
+    attempt_families: list,
+) -> ObligationBlock:
+    """Build evidence pools for a single obligation (legacy wrapper).
+
+    Filters session-wide ``assertions`` to the given obligation and
+    delegates to :func:`build_obligation_block`.
+    """
+
+    obligation_assertions = [
+        item for item in assertions if item.obligation_id == obligation.id and item.status != AssertionStatus.STALE
+    ]
+    return build_obligation_block(
+        obligation=obligation,
+        obligation_assertions=obligation_assertions,
+        evidence=evidence,
+        invalidation_tickets=invalidation_tickets,
+        attempt_families=attempt_families,
     )
 
 

@@ -9,20 +9,41 @@ from egtsr_runtime.db.migrations import run_migrations
 from egtsr_runtime.models import SessionSnapshot
 from egtsr_runtime.paths import RuntimePaths
 from egtsr_runtime.repositories import (
+    SqliteAssertionEvidenceLinkRepository,
     SqliteAssertionRepository,
     SqliteAttemptFamilyRepository,
     SqliteCapsuleRepository,
     SqliteEventRepository,
     SqliteEvidenceRepository,
     SqliteInvalidationRepository,
+    SqliteObligationFrontierRepository,
     SqliteObligationRepository,
+    SqlitePathSubjectIndexRepository,
     SqliteRepoStateRepository,
+    SqliteSessionFrontierRepository,
     SqliteSessionRepository,
     SqliteVerifyRepository,
 )
 
 
 class SqliteUnitOfWork:
+    """Unit-of-work over a SQLite connection.
+
+    Two modes:
+
+    **Legacy** (backward-compatible) — pass a path / RuntimePaths / RuntimeConfig::
+
+        with SqliteUnitOfWork(config) as uow:
+            ...  # opens connection, runs migrations, closes on exit
+
+    **Booted** — pass a ``sqlite3.Connection`` that was already opened and
+    migrated by :class:`~egtsr_runtime.db.runtime.SqliteRuntime`::
+
+        uow = SqliteUnitOfWork(conn)
+        with uow:
+            ...  # transaction only; connection stays open after exit
+    """
+
     sessions: SqliteSessionRepository
     obligations: SqliteObligationRepository
     evidence: SqliteEvidenceRepository
@@ -33,24 +54,30 @@ class SqliteUnitOfWork:
     capsules: SqliteCapsuleRepository
     events: SqliteEventRepository
     repo_state: SqliteRepoStateRepository
+    # Projection repositories
+    path_subject_index: SqlitePathSubjectIndexRepository
+    assertion_evidence_links: SqliteAssertionEvidenceLinkRepository
+    obligation_frontier: SqliteObligationFrontierRepository
+    session_frontier: SqliteSessionFrontierRepository
 
-    def __init__(self, db_path: str | RuntimePaths | RuntimeConfig) -> None:
-        self.db_path = _resolve_db_path(db_path)
-        self.conn: sqlite3.Connection | None = None
+    def __init__(
+        self, source: str | RuntimePaths | RuntimeConfig | sqlite3.Connection
+    ) -> None:
+        if isinstance(source, sqlite3.Connection):
+            self.db_path: str | None = None
+            self.conn: sqlite3.Connection | None = source
+            self._owns_connection = False
+        else:
+            self.db_path = _resolve_db_path(source)
+            self.conn = None
+            self._owns_connection = True
 
     def __enter__(self) -> "SqliteUnitOfWork":
-        self.conn = get_connection(self.db_path)
-        run_migrations(self.conn)
-        self.sessions = SqliteSessionRepository(self.conn)
-        self.obligations = SqliteObligationRepository(self.conn)
-        self.evidence = SqliteEvidenceRepository(self.conn)
-        self.assertions = SqliteAssertionRepository(self.conn)
-        self.invalidations = SqliteInvalidationRepository(self.conn)
-        self.verify_results = SqliteVerifyRepository(self.conn)
-        self.attempt_families = SqliteAttemptFamilyRepository(self.conn)
-        self.capsules = SqliteCapsuleRepository(self.conn)
-        self.events = SqliteEventRepository(self.conn)
-        self.repo_state = SqliteRepoStateRepository(self.conn)
+        if self._owns_connection:
+            self.conn = get_connection(self.db_path)  # type: ignore[arg-type]
+            run_migrations(self.conn)
+
+        self._init_repositories()
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
@@ -62,8 +89,9 @@ class SqliteUnitOfWork:
             elif self.conn.in_transaction:
                 self.rollback()
         finally:
-            self.conn.close()
-            self.conn = None
+            if self._owns_connection:
+                self.conn.close()
+                self.conn = None
 
     def commit(self) -> None:
         self._require_connection().commit()
@@ -75,6 +103,24 @@ class SqliteUnitOfWork:
         if self.conn is None:
             raise RuntimeError("Unit of work is not active")
         return self.conn
+
+    def _init_repositories(self) -> None:
+        conn = self._require_connection()
+        self.sessions = SqliteSessionRepository(conn)
+        self.obligations = SqliteObligationRepository(conn)
+        self.evidence = SqliteEvidenceRepository(conn)
+        self.assertions = SqliteAssertionRepository(conn)
+        self.invalidations = SqliteInvalidationRepository(conn)
+        self.verify_results = SqliteVerifyRepository(conn)
+        self.attempt_families = SqliteAttemptFamilyRepository(conn)
+        self.capsules = SqliteCapsuleRepository(conn)
+        self.events = SqliteEventRepository(conn)
+        self.repo_state = SqliteRepoStateRepository(conn)
+        # Projection repositories
+        self.path_subject_index = SqlitePathSubjectIndexRepository(conn)
+        self.assertion_evidence_links = SqliteAssertionEvidenceLinkRepository(conn)
+        self.obligation_frontier = SqliteObligationFrontierRepository(conn)
+        self.session_frontier = SqliteSessionFrontierRepository(conn)
 
 
 def save_snapshot(uow: SqliteUnitOfWork, snapshot: SessionSnapshot) -> None:

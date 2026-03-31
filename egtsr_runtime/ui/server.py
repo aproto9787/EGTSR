@@ -7,6 +7,7 @@ import json
 import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from egtsr_runtime.db.runtime import SqliteRuntime
 from egtsr_runtime.db.uow import SqliteUnitOfWork
 from egtsr_runtime.mcp.inspect import InspectService
 
@@ -19,8 +20,8 @@ _ROUTES = [
 ]
 
 
-def _make_handler(db_path: str):
-    """Return an InspectorHandler class bound to db_path."""
+def _make_handler(runtime: SqliteRuntime):
+    """Return an InspectorHandler class bound to a booted runtime."""
 
     class InspectorHandler(BaseHTTPRequestHandler):
         """Read-only HTTP handler. Routes GET requests to InspectService."""
@@ -30,7 +31,7 @@ def _make_handler(db_path: str):
                 m = pattern.match(self.path)
                 if m:
                     session_id = m.group(1)
-                    with SqliteUnitOfWork(db_path) as uow:
+                    with SqliteUnitOfWork(runtime.connection()) as uow:
                         service = InspectService(uow)
                         result = getattr(service, method_name)(session_id)
                     self._send_json(200, result)
@@ -63,6 +64,9 @@ def _make_handler(db_path: str):
 
 def start_inspector(db_path: str, host: str = "127.0.0.1", port: int = 9999) -> HTTPServer:
     """Start read-only inspector on localhost. Returns the server (caller must call serve_forever or handle_request)."""
-    handler = _make_handler(db_path)
+    runtime = SqliteRuntime(db_path)
+    runtime.boot()
+    handler = _make_handler(runtime)
     server = HTTPServer((host, port), handler)
+    server._egtsr_runtime = runtime  # type: ignore[attr-defined]
     return server

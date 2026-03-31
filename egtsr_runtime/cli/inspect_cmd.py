@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from egtsr_runtime.constants import DB_FILENAME, EGTSR_DIR_NAME
+from egtsr_runtime.db.runtime import SqliteRuntime
 from egtsr_runtime.db.uow import SqliteUnitOfWork
 from egtsr_runtime.mcp.inspect import InspectService
 
@@ -15,14 +16,19 @@ def run_inspect(target: str, session_id: str, project_dir: str = ".") -> None:
     if not db_path.exists():
         raise SystemExit(f"EGTSR DB not found: {db_path}")
 
-    with SqliteUnitOfWork(str(db_path)) as uow:
-        service = InspectService(uow)
-        handlers = {
-            "obligations": service.inspect_obligations,
-            "stale": service.inspect_stale,
-            "capsule": service.inspect_capsule,
-            "resume": service.resume_status,
-        }
-        result = handlers[target](session_id)
+    runtime = SqliteRuntime(str(db_path))
+    conn = runtime.boot()
+    try:
+        with SqliteUnitOfWork(conn) as uow:
+            service = InspectService(uow)
+            handlers = {
+                "obligations": service.inspect_obligations,
+                "stale": service.inspect_stale,
+                "capsule": service.inspect_capsule,
+                "resume": service.resume_status,
+            }
+            result = handlers[target](session_id)
+    finally:
+        runtime.shutdown()
 
     print(json.dumps(result, indent=2, ensure_ascii=False))

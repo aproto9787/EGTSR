@@ -1,0 +1,7 @@
+[project]
+name = "egtsr-runtime"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[project.scripts]
+egtsr = "egtsr_runtime.ops.recovery_cli:main"

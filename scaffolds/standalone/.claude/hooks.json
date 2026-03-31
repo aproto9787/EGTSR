@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 -m egtsr_runtime.hooks.entrypoint session_start"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "type": "command",
+        "command": "python3 -m egtsr_runtime.hooks.entrypoint session_end"
+      }
+    ]
+  }
+}

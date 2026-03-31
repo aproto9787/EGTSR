@@ -1,0 +1,44 @@
+{
+  "sessions": [
+    {
+      "id": "sess-snapshot",
+      "repo_root": "/repo/snapshot",
+      "branch": "feature/snapshot",
+      "head_hash": "def456",
+      "status": "active",
+      "created_at": "2026-03-31T01:00:00Z",
+      "updated_at": "2026-03-31T01:00:00Z"
+    }
+  ],
+  "repo_state": [
+    {
+      "session_id": "sess-snapshot",
+      "head_hash": "def456",
+      "dirty": false,
+      "changed_files": [],
+      "last_scan_at": "2026-03-31T01:01:00Z"
+    }
+  ],
+  "capsules": [
+    {
+      "id": "cap-fixture",
+      "session_id": "sess-snapshot",
+      "phase": "targeted",
+      "frontier_hash": "frontier-1",
+      "content": "capsule content",
+      "token_count": 42,
+      "audit_pass": true,
+      "audit_report": {"ok": true},
+      "created_at": "2026-03-31T01:02:00Z"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-fixture",
+      "session_id": "sess-snapshot",
+      "event_type": "snapshot.loaded",
+      "payload": {"source": "fixture"},
+      "created_at": "2026-03-31T01:03:00Z"
+    }
+  ]
+}

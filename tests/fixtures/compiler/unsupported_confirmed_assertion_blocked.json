@@ -1,0 +1,45 @@
+{
+  "session_id": "sess-unsupported-confirmed",
+  "token_budget": 900,
+  "obligations": [
+    {
+      "id": "obl-unsupported",
+      "session_id": "sess-unsupported-confirmed",
+      "source": "doc",
+      "statement": "Confirmed assertion needs support",
+      "priority": 60,
+      "status": "open",
+      "created_at": "2026-03-31T10:00:00Z",
+      "updated_at": "2026-03-31T10:00:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-confirmed-only",
+      "session_id": "sess-unsupported-confirmed",
+      "kind": "command",
+      "source_tool": "pytest",
+      "path": "tests/test_confirmed_only.py",
+      "polarity": "positive",
+      "excerpt": "unsupported confirmed excerpt",
+      "created_at": "2026-03-31T10:01:00Z"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "as-confirmed-only",
+      "session_id": "sess-unsupported-confirmed",
+      "obligation_id": "obl-unsupported",
+      "statement": "Unsupported confirmed assertion",
+      "status": "confirmed",
+      "confidence": 0.95,
+      "evidence_ids": [
+        "ev-confirmed-only"
+      ],
+      "created_at": "2026-03-31T10:02:00Z",
+      "updated_at": "2026-03-31T10:02:00Z"
+    }
+  ],
+  "invalidation_tickets": [],
+  "attempt_families": []
+}

@@ -1,0 +1,76 @@
+{
+  "session_id": "sess-stale",
+  "token_budget": 900,
+  "obligations": [
+    {
+      "id": "obl-stale",
+      "session_id": "sess-stale",
+      "source": "doc",
+      "statement": "Exclude stale evidence",
+      "priority": 70,
+      "status": "open",
+      "created_at": "2026-03-31T10:00:00Z",
+      "updated_at": "2026-03-31T10:00:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-live",
+      "session_id": "sess-stale",
+      "kind": "command",
+      "source_tool": "pytest",
+      "path": "tests/test_live.py",
+      "polarity": "positive",
+      "excerpt": "live evidence excerpt",
+      "created_at": "2026-03-31T10:01:00Z"
+    },
+    {
+      "id": "ev-stale",
+      "session_id": "sess-stale",
+      "kind": "command",
+      "source_tool": "pytest",
+      "path": "tests/test_stale.py",
+      "polarity": "positive",
+      "excerpt": "stale evidence excerpt",
+      "created_at": "2026-03-31T10:02:00Z"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "as-live",
+      "session_id": "sess-stale",
+      "obligation_id": "obl-stale",
+      "statement": "Live supported assertion",
+      "status": "supported",
+      "confidence": 0.9,
+      "evidence_ids": ["ev-live"],
+      "created_at": "2026-03-31T10:03:00Z",
+      "updated_at": "2026-03-31T10:03:00Z"
+    },
+    {
+      "id": "as-stale",
+      "session_id": "sess-stale",
+      "obligation_id": "obl-stale",
+      "statement": "Stale assertion",
+      "status": "stale",
+      "confidence": 0.2,
+      "evidence_ids": ["ev-stale"],
+      "created_at": "2026-03-31T10:04:00Z",
+      "updated_at": "2026-03-31T10:04:00Z"
+    }
+  ],
+  "invalidation_tickets": [
+    {
+      "id": "inv-stale-evidence",
+      "session_id": "sess-stale",
+      "subject_type": "evidence",
+      "subject_id": "ev-stale",
+      "trigger_kind": "file_change",
+      "trigger_ref": "src/stale.py",
+      "status": "live",
+      "created_at": "2026-03-31T10:05:00Z",
+      "updated_at": "2026-03-31T10:05:00Z"
+    }
+  ],
+  "attempt_families": []
+}

@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# EGTSR runtime artifacts (generated per-session)
+.egtsr/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

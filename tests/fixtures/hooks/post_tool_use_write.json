@@ -1,0 +1,1 @@
+{"session_id":"test-session-1","cwd":"/repo","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"/repo/src/main.py","content":"print('hello')"},"tool_response":{"status":"success"},"tool_use_id":"toolu_write_1"}

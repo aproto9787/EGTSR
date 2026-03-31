@@ -1,0 +1,27 @@
+{
+  "sessions": [
+    {
+      "id": "sess-verify",
+      "repo_root": "/tmp/verify-repo",
+      "branch": "main",
+      "head_hash": "abc123",
+      "status": "active",
+      "created_at": "2026-03-31T10:00:00Z",
+      "updated_at": "2026-03-31T10:00:00Z"
+    }
+  ],
+  "obligations": [
+    {
+      "id": "obl-addressed",
+      "session_id": "sess-verify",
+      "source": "spec",
+      "statement": "Targeted verify should reopen on failure",
+      "priority": 10,
+      "status": "addressed",
+      "acceptance_check": "pytest -k targeted",
+      "metadata": {},
+      "created_at": "2026-03-31T10:01:00Z",
+      "updated_at": "2026-03-31T10:01:00Z"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "session_id": "sess-budget",
+  "token_budget": 40,
+  "obligations": [
+    {
+      "id": "obl-a",
+      "session_id": "sess-budget",
+      "source": "doc",
+      "statement": "A obligation",
+      "priority": 10,
+      "status": "open",
+      "created_at": "2026-03-31T10:00:00Z",
+      "updated_at": "2026-03-31T10:00:00Z"
+    },
+    {
+      "id": "obl-b",
+      "session_id": "sess-budget",
+      "source": "doc",
+      "statement": "B obligation",
+      "priority": 20,
+      "status": "localized",
+      "created_at": "2026-03-31T10:01:00Z",
+      "updated_at": "2026-03-31T10:01:00Z"
+    },
+    {
+      "id": "obl-c",
+      "session_id": "sess-budget",
+      "source": "doc",
+      "statement": "C obligation",
+      "priority": 30,
+      "status": "addressed",
+      "created_at": "2026-03-31T10:02:00Z",
+      "updated_at": "2026-03-31T10:02:00Z"
+    },
+    {
+      "id": "obl-d",
+      "session_id": "sess-budget",
+      "source": "doc",
+      "statement": "D obligation",
+      "priority": 40,
+      "status": "blocked",
+      "created_at": "2026-03-31T10:03:00Z",
+      "updated_at": "2026-03-31T10:03:00Z"
+    }
+  ],
+  "evidence": [],
+  "assertions": [],
+  "invalidation_tickets": [],
+  "attempt_families": []
+}

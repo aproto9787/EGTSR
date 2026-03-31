@@ -1,0 +1,68 @@
+{
+  "sessions": [
+    {
+      "id": "sess-fixture",
+      "repo_root": "/repo/fixture",
+      "branch": "main",
+      "head_hash": "abc123",
+      "status": "active",
+      "created_at": "2026-03-31T00:00:00Z",
+      "updated_at": "2026-03-31T00:00:00Z"
+    }
+  ],
+  "repo_state": [
+    {
+      "session_id": "sess-fixture",
+      "head_hash": "abc123",
+      "dirty": true,
+      "changed_files": ["README.md", "src/app.py"],
+      "last_scan_at": "2026-03-31T00:05:00Z"
+    }
+  ],
+  "obligations": [
+    {
+      "id": "obl-fixture",
+      "session_id": "sess-fixture",
+      "source": "spec",
+      "statement": "Runtime must persist obligations",
+      "priority": 10,
+      "status": "open",
+      "acceptance_check": "db obligations row exists",
+      "metadata": {"tag": "core"},
+      "created_at": "2026-03-31T00:10:00Z",
+      "updated_at": "2026-03-31T00:10:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-fixture",
+      "session_id": "sess-fixture",
+      "kind": "file",
+      "source_tool": "pytest",
+      "path": "tests/test_runtime.py",
+      "scope_kind": "file",
+      "scope_ref": "tests/test_runtime.py",
+      "file_hash": "ff00",
+      "polarity": "positive",
+      "excerpt": "round trip works",
+      "metadata": {"line": 12},
+      "created_at": "2026-03-31T00:11:00Z"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "as-fixture",
+      "session_id": "sess-fixture",
+      "obligation_id": "obl-fixture",
+      "statement": "Obligation is backed by evidence",
+      "scope_kind": "repo",
+      "scope_ref": "/repo/fixture",
+      "status": "supported",
+      "confidence": 0.8,
+      "evidence_ids": ["ev-fixture"],
+      "metadata": {"seed": true},
+      "created_at": "2026-03-31T00:12:00Z",
+      "updated_at": "2026-03-31T00:12:00Z"
+    }
+  ]
+}

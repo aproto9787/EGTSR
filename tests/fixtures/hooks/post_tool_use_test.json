@@ -1,0 +1,1 @@
+{"session_id":"test-session-1","cwd":"/repo","hook_event_name":"PostToolUse","tool_name":"Test","tool_input":{"command":"python -m pytest tests/ -v"},"tool_response":{"stdout":"5 passed in 1.2s\n","stderr":"","exit_code":0},"tool_use_id":"toolu_test_1"}

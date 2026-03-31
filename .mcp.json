@@ -2,8 +2,10 @@
   "mcpServers": {
     "egtsr": {
       "command": "python3",
-      "args": ["run_mcp.py"],
-      "description": "EGTSR inspection tools — read-only session state queries"
+      "args": ["${CLAUDE_PLUGIN_ROOT}/run_mcp.py"],
+      "env": {
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}"
+      }
     }
   }
 }

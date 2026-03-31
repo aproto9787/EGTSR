@@ -90,21 +90,6 @@ egtsr_runtime/
 mcp_server/     MCP JSON-RPC server for Claude Code plugin
 ```
 
-## Implementation Steps (completed)
-
-- [x] Step 00 Foundation Freeze
-- [x] Step 01 Domain State + SQLite
-- [x] Step 02 Hook Envelope + Session Bootstrap
-- [x] Step 03 Decision Capsule Compiler
-- [x] Step 04 Compile Audit + Prompt Gate
-- [x] Step 05 PostToolUse Ingest + Evidence Normalization
-- [x] Step 06 File-Touch Invalidation + Stale Quarantine
-- [x] Step 07 Resume Handshake + SessionEnd Snapshot
-- [x] Step 08 Verify Results + Attempt Families
-- [x] Step 09 MCP Skills + Local Operator UI
-- [x] Step 10 Observability + Recovery + Packaging
-- [x] Step 11 Benchmark Harness + Go/No-Go
-
 ## Requirements
 
 - Python >= 3.12

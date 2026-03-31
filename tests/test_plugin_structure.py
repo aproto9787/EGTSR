@@ -11,10 +11,10 @@ SKILL_NAMES = [
     "egtsr-doctor",
 ]
 EXPECTED_HOOK_COMMANDS = {
-    "SessionStart": "python3 -m egtsr_runtime.hooks.entrypoint session_start",
-    "UserPromptSubmit": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit",
-    "PostToolUse": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use",
-    "SessionEnd": "python3 -m egtsr_runtime.hooks.entrypoint session_end",
+    "SessionStart": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_start',
+    "UserPromptSubmit": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit',
+    "PostToolUse": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint post_tool_use',
+    "SessionEnd": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_end',
 }
 
 
@@ -57,9 +57,8 @@ class TestPluginStructure(unittest.TestCase):
             data["plugins"][0],
             {
                 "name": "egtsr",
-                "source": ".",
+                "source": "./",
                 "description": "Obligation tracking, stale quarantine, and resume safety for Claude Code",
-                "version": "0.1.0",
                 "author": {"name": "argoss"},
             },
         )
@@ -69,10 +68,13 @@ class TestPluginStructure(unittest.TestCase):
         data = json.loads((PROJECT_ROOT / ".mcp.json").read_text())
         self.assertIn("egtsr", data["mcpServers"])
         self.assertEqual(data["mcpServers"]["egtsr"]["command"], "python3")
-        self.assertEqual(data["mcpServers"]["egtsr"]["args"], ["-m", "mcp_server.server"])
         self.assertEqual(
-            data["mcpServers"]["egtsr"]["description"],
-            "EGTSR inspection tools — read-only session state queries",
+            data["mcpServers"]["egtsr"]["args"],
+            ["${CLAUDE_PLUGIN_ROOT:-.}/run_mcp.py"],
+        )
+        self.assertEqual(
+            data["mcpServers"]["egtsr"]["env"]["PYTHONPATH"],
+            "${CLAUDE_PLUGIN_ROOT:-.}",
         )
 
     def test_hooks_all_four(self):

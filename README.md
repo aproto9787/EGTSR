@@ -13,16 +13,11 @@ EGTSR (Execution-Grounded Task-State Runtime) is a Claude Code plugin that preve
 ## Quick Start
 
 ```bash
-# Install
-pip install .
-
-# Activate in any project
-cd ~/your-project
-egtsr setup
-
-# Or install as Claude Code plugin
-claude plugin add egtsr
+# Primary path: install from Claude Code marketplace
+/plugin install egtsr@aproto9787-egtsr
 ```
+
+Marketplace install is the primary path. It packages the plugin entry, MCP server, hooks, and skills together for Claude Code.
 
 ## How It Works
 
@@ -45,11 +40,11 @@ SessionEnd ───────────────────────
 ## CLI Commands
 
 ```text
-egtsr setup          # Register hooks in project
+egtsr setup          # Register hooks in project (legacy/manual install)
 egtsr doctor         # Diagnose runtime health
 egtsr inspect        # Inspect session state
 egtsr benchmark      # Run benchmark harness
-egtsr uninstall      # Remove hooks
+egtsr uninstall      # Remove hooks (legacy/manual install)
 ```
 
 ## MCP Tools (for Claude)
@@ -114,6 +109,18 @@ mcp_server/     MCP JSON-RPC server for Claude Code plugin
 
 - Python >= 3.12
 - No external dependencies (stdlib only)
+
+## Legacy / Manual Install
+
+Use this path only if you are not installing through the Claude Code marketplace.
+
+```bash
+pip install .
+cd ~/your-project
+egtsr setup
+```
+
+This manual flow registers EGTSR hooks in the project and keeps the older local-install workflow available.
 
 ## License
 

@@ -10,7 +10,7 @@ to track session state in the background.
 
 | Aspect | Current (pip + hooks) | Target (Claude Code Plugin) |
 |--------|----------------------|----------------------------|
-| Install | `pip install . && egtsr setup` | `claude plugin add egtsr` |
+| Install | `pip install . && egtsr setup` | `/plugin install egtsr@aproto9787-egtsr` |
 | Interface | hooks (stdin/stdout JSON) | **MCP server** + skills + hooks |
 | Commands | CLI (`egtsr doctor`) | **`/egtsr` skills** (in-session) |
 | Distribution | PyPI / git clone | **Plugin marketplace** |
@@ -26,10 +26,22 @@ Plugin: Claude can directly read EGTSR state — "3 obligations open, 1 stale" s
 
 ## Plugin Structure
 
+> **Update — confirmed marketplace packaging structure**
+>
+> Earlier drafts in this document assumed `plugin.json` would inline MCP, hooks, and skills.
+> The confirmed structure is now:
+> - `plugin.json`: metadata only
+> - `.mcp.json`: MCP server definition
+> - `hooks/hooks.json`: hook definition
+> - `skills/*/SKILL.md`: skill auto-discovery
+
 ```
 egtsr-plugin/
 ├── .claude-plugin/
-│   └── plugin.json                # Plugin manifest
+│   └── plugin.json                # Metadata only
+├── .mcp.json                      # MCP server definition
+├── hooks/
+│   └── hooks.json                 # Hook definitions
 ├── egtsr_runtime/                 # Core runtime (existing code)
 │   ├── compiler/
 │   ├── db/
@@ -45,11 +57,15 @@ egtsr-plugin/
 │   ├── __init__.py
 │   ├── server.py                  # stdio MCP server
 │   └── tools.py                   # MCP tool definitions wrapping InspectService
-├── skills/                        # NEW: User-invocable skills
-│   ├── egtsr-setup.md
-│   ├── egtsr-status.md
-│   ├── egtsr-inspect.md
-│   └── egtsr-doctor.md
+├── skills/                        # NEW: User-invocable skills (auto-discovered)
+│   ├── egtsr-setup/
+│   │   └── SKILL.md
+│   ├── egtsr-status/
+│   │   └── SKILL.md
+│   ├── egtsr-inspect/
+│   │   └── SKILL.md
+│   └── egtsr-doctor/
+│       └── SKILL.md
 ├── pyproject.toml                 # Package config (existing, extended)
 └── docs/
     └── CLAUDE_CODE_PLUGIN_PLAN.md # This file
@@ -128,9 +144,18 @@ class EGTSRMCPServer:
 
 ---
 
-## Phase B: Plugin Manifest + Skills
+## Phase B: Plugin Metadata + Packaging Files
 
-### plugin.json
+### Confirmed structure
+
+- `.claude-plugin/plugin.json`: metadata only
+- `.mcp.json`: MCP server command/transport definition
+- `hooks/hooks.json`: packaged hook registration
+- `skills/*/SKILL.md`: packaged skills discovered automatically
+
+### Legacy draft (outdated assumption kept for reference)
+
+The following inline-manifest example reflects an earlier assumption and should not be treated as the final marketplace layout:
 
 ```json
 {
@@ -139,64 +164,7 @@ class EGTSRMCPServer:
   "version": "0.1.0",
   "description": "Execution-Grounded Task-State Runtime — obligation tracking, stale quarantine, resume safety for Claude Code",
   "author": "argoss",
-  "license": "MIT",
-  "mcp": {
-    "command": "python3",
-    "args": ["-m", "mcp_server.server"],
-    "transport": "stdio"
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint session_start"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint post_tool_use"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -m egtsr_runtime.hooks.entrypoint session_end"
-          }
-        ]
-      }
-    ]
-  },
-  "skills": [
-    "skills/egtsr-setup.md",
-    "skills/egtsr-status.md",
-    "skills/egtsr-inspect.md",
-    "skills/egtsr-doctor.md"
-  ]
+  "license": "MIT"
 }
 ```
 
@@ -216,20 +184,23 @@ Runtime health check: DB integrity, artifact existence, hook config, metrics ano
 
 ### Files to Create
 - `.claude-plugin/plugin.json`
-- `skills/egtsr-setup.md`
-- `skills/egtsr-status.md`
-- `skills/egtsr-inspect.md`
-- `skills/egtsr-doctor.md`
+- `.mcp.json`
+- `hooks/hooks.json`
+- `skills/egtsr-setup/SKILL.md`
+- `skills/egtsr-status/SKILL.md`
+- `skills/egtsr-inspect/SKILL.md`
+- `skills/egtsr-doctor/SKILL.md`
 
 ---
 
-## Phase C: Hooks Integration into Plugin Manifest
+## Phase C: Hooks Integration into Packaged Files
 
 ### Objective
-Move hook registration from `egtsr setup` CLI into plugin.json so hooks auto-register on plugin install.
+Move hook registration from `egtsr setup` CLI into packaged plugin files so hooks auto-register on plugin install.
 
 ### Changes
-- plugin.json `hooks` section replaces manual `.claude/settings.local.json` setup
+- `hooks/hooks.json` replaces manual `.claude/settings.local.json` setup
+- `.mcp.json` defines the MCP server instead of embedding it in `plugin.json`
 - `egtsr setup` CLI becomes optional (for non-plugin installs)
 - Hook commands remain the same (`python3 -m egtsr_runtime.hooks.entrypoint <hook>`)
 
@@ -272,10 +243,7 @@ Move hook registration from `egtsr setup` CLI into plugin.json so hooks auto-reg
 ### Plugin Marketplace
 ```bash
 # User installs from marketplace
-claude plugin add egtsr
-
-# Or from GitHub
-claude plugin add argoss/egtsr
+/plugin install egtsr@aproto9787-egtsr
 ```
 
 ### PyPI (optional, for pip users)
@@ -291,7 +259,7 @@ egtsr setup  # manual hook registration
 | Step | Phase | Effort | Dependencies |
 |------|-------|--------|-------------|
 | 1 | **A: MCP Server** | Medium | `mcp` Python package |
-| 2 | **B: plugin.json + skills** | Low | Phase A |
+| 2 | **B: metadata + packaging files** | Low | Phase A |
 | 3 | **C: Hooks integration** | Low | Phase B |
 | 4 | **D: Testing** | Medium | Phase A, B, C |
 | 5 | **E: Distribution** | Low | Phase D |
@@ -356,7 +324,7 @@ Claude (during response) │
 | Risk | Mitigation |
 |------|-----------|
 | MCP SDK not stable | Pin version, minimal API surface |
-| Plugin format changes | Abstract plugin.json generation |
+| Plugin format changes | Abstract metadata + packaging file generation |
 | Hook + MCP race condition | Hooks write DB first, MCP reads after |
 | Performance (MCP server startup) | Keep server lightweight, lazy imports |
 | Claude over-relying on EGTSR state | Skills prompt Claude to verify, not blindly trust |
@@ -365,7 +333,7 @@ Claude (during response) │
 
 ## Success Criteria
 
-- [ ] `claude plugin add egtsr` installs cleanly
+- [ ] `/plugin install egtsr@aproto9787-egtsr` installs cleanly
 - [ ] Hooks auto-register without manual setup
 - [ ] Claude can call `egtsr_inspect_obligations` and get valid response
 - [ ] `/egtsr-status` shows session summary

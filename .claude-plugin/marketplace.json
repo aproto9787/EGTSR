@@ -10,12 +10,8 @@
   "plugins": [
     {
       "name": "egtsr",
-      "source": {
-        "source": "github",
-        "repo": "aproto9787/EGTSR"
-      },
+      "source": "./",
       "description": "Obligation tracking, stale quarantine, and resume safety for Claude Code",
-      "version": "0.1.0",
       "author": {
         "name": "argoss"
       }

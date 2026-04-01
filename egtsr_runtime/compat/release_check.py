@@ -147,7 +147,7 @@ class ReleaseChecker:
 
             # Quick smoke test: valid allow response should pass
             resp = {"hookSpecificOutput": {"additionalContext": "ok"}}
-            violations = validate_hook_response(resp)
+            violations = validate_hook_response(resp, hook_event_name="UserPromptSubmit")
             if violations:
                 return CheckResult(
                     name="contract_validation",

@@ -155,6 +155,9 @@ def _fail_response(hook_name: str, reason: str) -> None:
     user_prompt_submit is the safety-critical gate: any exception must block
     to prevent unvetted prompts from passing through.  All other hooks may
     fall back to allow so Claude Code is not entirely stalled.
+
+    Note: hookSpecificOutput is only valid for UserPromptSubmit, PostToolUse,
+    PreToolUse.  Session hooks (session_start, session_end) must not include it.
     """
     if hook_name == "user_prompt_submit":
         response = {
@@ -164,13 +167,19 @@ def _fail_response(hook_name: str, reason: str) -> None:
                 "additionalContext": f"egtsr_fail_closed: {reason}",
             },
         }
-    else:
+    elif hook_name in ("session_start", "session_end"):
+        # Session hooks: no hookSpecificOutput — use top-level fields only
+        response: dict = {}
+    elif hook_name == "post_tool_use":
         response = {
             "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
                 "additionalContext": f"egtsr_entrypoint_fail_open: {reason}",
             },
             "suppressOutput": False,
         }
+    else:
+        response = {}
     print(json.dumps(response, ensure_ascii=False))
 
 

@@ -207,7 +207,9 @@ class FailClosedEntrypointTests(unittest.TestCase):
 
         result = json.loads(buf.getvalue())
         self.assertNotIn("decision", result)
-        self.assertIn("fail_open", result["hookSpecificOutput"]["additionalContext"])
+        # Session hooks must not include hookSpecificOutput
+        self.assertNotIn("hookSpecificOutput", result)
+        self.assertEqual(result, {})
 
 
 if __name__ == "__main__":

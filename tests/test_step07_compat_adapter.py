@@ -164,8 +164,8 @@ class TestContractValidation(unittest.TestCase):
         from egtsr_runtime.compat.contract import validate_hook_response
         from egtsr_runtime.hooks.responses import build_allow_response
 
-        resp = build_allow_response("user_prompt_submit", additional_context="ok")
-        violations = validate_hook_response(resp)
+        resp = build_allow_response("UserPromptSubmit", additional_context="ok")
+        violations = validate_hook_response(resp, hook_event_name="UserPromptSubmit")
         self.assertEqual(violations, [])
 
     def test_valid_block_response(self) -> None:
@@ -173,13 +173,28 @@ class TestContractValidation(unittest.TestCase):
         from egtsr_runtime.hooks.responses import build_block_response
 
         resp = build_block_response(reason="test", additional_context="ctx")
-        violations = validate_hook_response(resp)
+        violations = validate_hook_response(resp, hook_event_name="UserPromptSubmit")
         self.assertEqual(violations, [])
+
+    def test_valid_session_start_response(self) -> None:
+        from egtsr_runtime.compat.contract import validate_hook_response
+        from egtsr_runtime.hooks.responses import build_allow_response
+
+        resp = build_allow_response("SessionStart", additional_context="ctx")
+        violations = validate_hook_response(resp, hook_event_name="SessionStart")
+        self.assertEqual(violations, [])
+
+    def test_session_hook_rejects_hookSpecificOutput(self) -> None:
+        from egtsr_runtime.compat.contract import validate_hook_response
+
+        resp = {"hookSpecificOutput": {"additionalContext": "bad"}}
+        violations = validate_hook_response(resp, hook_event_name="SessionEnd")
+        self.assertTrue(any("hookSpecificOutput not allowed" in v for v in violations))
 
     def test_invalid_response_missing_hso(self) -> None:
         from egtsr_runtime.compat.contract import validate_hook_response
 
-        violations = validate_hook_response({"foo": "bar"})
+        violations = validate_hook_response({"foo": "bar"}, hook_event_name="UserPromptSubmit")
         self.assertTrue(any("hookSpecificOutput" in v for v in violations))
 
     def test_capsule_snapshot_valid(self) -> None:

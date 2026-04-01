@@ -266,7 +266,8 @@ class TestDaemonServer(unittest.TestCase):
                 self.assertTrue(resp["ok"])
                 self.assertIn("hook_response", resp)
                 hr = resp["hook_response"]
-                self.assertIn("hookSpecificOutput", hr)
+                # SessionStart must NOT include hookSpecificOutput
+                self.assertNotIn("hookSpecificOutput", hr)
                 self.assertEqual(resp["diagnostics"]["mode"], "daemon")
             finally:
                 server._running = False

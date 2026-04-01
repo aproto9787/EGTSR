@@ -181,7 +181,7 @@ class EGTSRMCPServer:
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "egtsr", "version": "0.1.0"},
+                "serverInfo": {"name": "egtsr", "version": "0.1.1"},
             },
         }
 

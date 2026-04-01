@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import sqlite3
 import tempfile
@@ -112,13 +113,90 @@ class TestMCPServer(unittest.TestCase):
     def _tool_result_payload(response: dict) -> dict:
         return json.loads(response["result"]["content"][0]["text"])
 
+    @staticmethod
+    def _frame_request(request: dict) -> bytes:
+        body = json.dumps(request, ensure_ascii=False).encode("utf-8")
+        return f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8") + body
+
+    @staticmethod
+    def _parse_framed_responses(payload: bytes) -> list[tuple[int, dict]]:
+        responses: list[tuple[int, dict]] = []
+        offset = 0
+        while offset < len(payload):
+            header_end = payload.find(b"\r\n\r\n", offset)
+            if header_end == -1:
+                raise AssertionError("Missing header terminator in framed response")
+            header = payload[offset:header_end].decode("utf-8")
+            if not header.startswith("Content-Length: "):
+                raise AssertionError(f"Unexpected header: {header}")
+            body_length = int(header.split(": ", 1)[1])
+            body_start = header_end + 4
+            body_end = body_start + body_length
+            body = payload[body_start:body_end]
+            responses.append((body_length, json.loads(body.decode("utf-8"))))
+            offset = body_end
+        return responses
+
+    def _run_server_with_framed_requests(self, payload: bytes) -> bytes:
+        server = self._make_server()
+        stdin_bytes = io.BytesIO(payload)
+        stdout_bytes = io.BytesIO()
+        stdin = io.TextIOWrapper(stdin_bytes, encoding="utf-8", newline="")
+        stdout = io.TextIOWrapper(stdout_bytes, encoding="utf-8", newline="")
+        try:
+            server.run(stdin=stdin, stdout=stdout)
+            stdout.flush()
+            return stdout_bytes.getvalue()
+        finally:
+            stdin.detach()
+            stdout.detach()
+
     def test_initialize(self) -> None:
         server = self._make_server()
         response = server._handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
 
         self.assertEqual(response["result"]["protocolVersion"], "2024-11-05")
         self.assertEqual(response["result"]["serverInfo"]["name"], "egtsr")
+        self.assertEqual(response["result"]["serverInfo"]["version"], "0.1.1")
         self.assertIn("tools", response["result"]["capabilities"])
+
+    def test_stdio_response_uses_content_length_framing(self) -> None:
+        raw_output = self._run_server_with_framed_requests(
+            self._frame_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        )
+        self.assertIn(b"Content-Length: ", raw_output)
+        self.assertTrue(raw_output.startswith(b"Content-Length: "))
+
+        responses = self._parse_framed_responses(raw_output)
+        self.assertEqual(len(responses), 1)
+        body_length, response = responses[0]
+        expected_body = json.dumps(response, ensure_ascii=False).encode("utf-8")
+        self.assertEqual(body_length, len(expected_body))
+        self.assertEqual(response["id"], 1)
+        self.assertEqual(response["result"]["serverInfo"]["version"], "0.1.1")
+
+    def test_stdio_response_content_length_matches_json_body_bytes(self) -> None:
+        raw_output = self._run_server_with_framed_requests(
+            self._frame_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+        )
+        header_end = raw_output.index(b"\r\n\r\n")
+        header = raw_output[:header_end].decode("utf-8")
+        body = raw_output[header_end + 4 :]
+        self.assertTrue(header.startswith("Content-Length: "))
+        content_length = int(header.split(": ", 1)[1])
+        self.assertEqual(content_length, len(body))
+        self.assertEqual(content_length, len(body.decode("utf-8").encode("utf-8")))
+
+    def test_stdio_response_framing_survives_multiple_responses(self) -> None:
+        raw_output = self._run_server_with_framed_requests(
+            self._frame_request({"jsonrpc": "2.0", "id": 10, "method": "initialize", "params": {}})
+            + self._frame_request({"jsonrpc": "2.0", "id": 11, "method": "tools/list", "params": {}})
+        )
+        responses = self._parse_framed_responses(raw_output)
+        self.assertEqual(len(responses), 2)
+        self.assertEqual([response["id"] for _, response in responses], [10, 11])
+        for body_length, response in responses:
+            self.assertEqual(body_length, len(json.dumps(response, ensure_ascii=False).encode("utf-8")))
 
     def test_tools_list(self) -> None:
         server = self._make_server()

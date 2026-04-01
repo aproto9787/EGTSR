@@ -6,7 +6,6 @@ import sqlite3
 
 from egtsr_runtime.constants import (
     DB_FILENAME,
-    EGTSR_DIR_NAME,
     LAST_GOOD_CAPSULE,
     PHASE1_HOOKS,
     RESUME_GATE,
@@ -26,7 +25,9 @@ class RecoveryCLI:
 
         Returns: {"checks": [...], "issues": [...], "safe_fixes": [...]}
         """
-        egtsr_dir = os.path.join(repo_root, EGTSR_DIR_NAME)
+        from egtsr_runtime.runtime_locator import resolve_project_dir
+
+        egtsr_dir = str(resolve_project_dir(repo_root))
         db_path = os.path.join(egtsr_dir, DB_FILENAME)
 
         checks = []
@@ -41,8 +42,8 @@ class RecoveryCLI:
 
         artifacts_result = self._check_artifacts(egtsr_dir)
         checks.append(artifacts_result)
-        if not artifacts_result["ok"]:
-            issues.extend(artifacts_result.get("missing", []))
+        # JSON artifacts are export/debug only; missing artifacts are noted
+        # but do not block overall health (DB is authoritative)
 
         hooks_result = self._check_hooks_config(repo_root)
         checks.append(hooks_result)

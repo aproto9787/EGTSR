@@ -1,5 +1,9 @@
 from egtsr_runtime.services.attempt_families import AttemptFamilyService
-from egtsr_runtime.services.invalidation import FileTouchInvalidationService, InvalidationResult
+from egtsr_runtime.services.invalidation import (
+    FileTouchInvalidationService,
+    InvalidationResult,
+    evaluate_assertion_support,
+)
 from egtsr_runtime.services.raw_archive import archive_raw_event
 from egtsr_runtime.services.resume_gate import ResumeGateService, ResumeGateState
 from egtsr_runtime.services.repo_inspector import RepoInspectResult, inspect_repo
@@ -11,6 +15,7 @@ __all__ = [
     "AttemptFamilyService",
     "FileTouchInvalidationService",
     "InvalidationResult",
+    "evaluate_assertion_support",
     "RepoInspectResult",
     "ResumeGateService",
     "ResumeGateState",

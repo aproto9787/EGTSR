@@ -53,7 +53,8 @@ class UserPromptSubmitServiceTests(unittest.TestCase):
         self.assertIn("Unsupported confirmed assertions", result.response["reason"])
         self.assertFalse(result.audit_report.passed)
 
-    def test_fail_open_when_compiler_crashes_outside_resume(self) -> None:
+    def test_fail_closed_when_compiler_crashes_outside_resume(self) -> None:
+        """v0.2: user_prompt_submit is always fail-closed, even outside resume."""
         envelope = self._envelope(prompt="read the file", source="startup")
 
         with SqliteUnitOfWork(self.config) as uow:
@@ -62,11 +63,12 @@ class UserPromptSubmitServiceTests(unittest.TestCase):
             with mock.patch.object(service._compiler, "compile", side_effect=RuntimeError("boom")):
                 result = service.handle(envelope)
 
-        self.assertTrue(result.allowed)
-        self.assertNotIn("decision", result.response)
-        self.assertIn("compiler_status=fail_open", result.response["hookSpecificOutput"]["additionalContext"])
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.response["decision"], "block")
+        self.assertIn("decision_capsule_unavailable", result.response["reason"])
 
-    def test_safe_resume_blocks_when_compiler_crashes(self) -> None:
+    def test_resume_blocks_when_compiler_crashes(self) -> None:
+        """v0.2: compiler crash always blocks, resume or not."""
         envelope = self._envelope(prompt="read the file", source="resume")
 
         with SqliteUnitOfWork(self.config) as uow:
@@ -77,8 +79,7 @@ class UserPromptSubmitServiceTests(unittest.TestCase):
 
         self.assertFalse(result.allowed)
         self.assertEqual(result.response["decision"], "block")
-        self.assertEqual(result.response["reason"], "Safe-resume blocked: decision capsule unavailable")
-        self.assertNotIn("boom", result.response["reason"])
+        self.assertIn("decision_capsule_unavailable", result.response["reason"])
 
     def test_capsule_stored_with_audit_fields(self) -> None:
         envelope = self._envelope(prompt="read the file")

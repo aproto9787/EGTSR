@@ -55,7 +55,6 @@ from egtsr_runtime.cli.cutover_cmd import (
 from egtsr_runtime.cli.inspect_cmd import run_inspect
 from egtsr_runtime.cli.setup import run_setup
 from egtsr_runtime.cli.uninstall import run_uninstall
-from egtsr_runtime.constants import EGTSR_DIR_NAME, REPORTS_DIR
 from egtsr_runtime.ops.recovery_cli import RecoveryCLI
 
 
@@ -79,7 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     bench_p.add_argument("--project-dir", default=".", help="Project directory")
     bench_p.add_argument(
         "--save-report", action="store_true", default=False,
-        help="Save report to .egtsr/reports/",
+        help="Save report to runtime reports directory",
     )
     bench_sub = bench_p.add_subparsers(dest="bench_mode")
     bench_sub.add_parser("latency", help="Hook latency benchmark")
@@ -136,8 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
     release_check_p.add_argument("--project-dir", default=".", help="Project directory")
     release_check_p.add_argument(
         "--save-report", action="store_true", default=False,
-        help="Save report to .egtsr/reports/",
+        help="Save report to runtime reports directory",
     )
+
+    migrate_p = subparsers.add_parser("migrate", help="Migrate legacy .egtsr/ to global runtime")
+    migrate_p.add_argument("--project-dir", default=".", help="Project directory")
 
     uninstall_p = subparsers.add_parser("uninstall", help="Remove EGTSR hooks from project")
     uninstall_p.add_argument("--project-dir", default=".", help="Project directory")
@@ -190,9 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "metrics":
-        metrics_dir = str(
-            Path(args.project_dir).resolve() / EGTSR_DIR_NAME / "metrics"
-        )
+        metrics_dir = str(Path(_resolve_egtsr_dir(args.project_dir)) / "metrics")
         run_metrics(metrics_dir)
         return 0
 
@@ -208,6 +208,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "release":
         return _handle_release(args)
 
+    if args.command == "migrate":
+        from egtsr_runtime.cli.migrate_global import migrate_to_global
+
+        return migrate_to_global(args.project_dir)
+
     if args.command == "uninstall":
         run_uninstall(args.project_dir)
         return 0
@@ -220,7 +225,7 @@ def _handle_daemon(args) -> int:
     """Handle ``egtsr daemon {start|stop|status}``."""
     action = getattr(args, "daemon_action", None)
     project_dir = getattr(args, "project_dir", ".")
-    egtsr_dir = str(Path(project_dir).resolve() / EGTSR_DIR_NAME)
+    egtsr_dir = _resolve_egtsr_dir(project_dir)
 
     if action == "start":
         return _daemon_start(project_dir, getattr(args, "idle_timeout", 300))
@@ -253,7 +258,7 @@ def _daemon_start(project_dir: str, idle_timeout: int) -> int:
     import time
     from egtsr_runtime.daemon.client import send_ping
 
-    egtsr_dir = str(Path(repo_root) / EGTSR_DIR_NAME)
+    egtsr_dir = _resolve_egtsr_dir(repo_root)
     for _ in range(10):
         time.sleep(0.2)
         if send_ping(egtsr_dir):
@@ -325,10 +330,17 @@ def _handle_release(args) -> int:
     return 1
 
 
+def _resolve_egtsr_dir(project_dir: str) -> str:
+    """Resolve project shard directory via global locator."""
+    from egtsr_runtime.runtime_locator import resolve_project_dir
+
+    return str(resolve_project_dir(project_dir))
+
+
 def _reports_dir(project_dir: str) -> str:
-    p = Path(project_dir).resolve() / EGTSR_DIR_NAME / REPORTS_DIR
-    p.mkdir(parents=True, exist_ok=True)
-    return str(p)
+    from egtsr_runtime.runtime_locator import resolve_project_runtime_paths
+
+    return resolve_project_runtime_paths(project_dir).reports_dir
 
 
 def _resolve_version() -> str:

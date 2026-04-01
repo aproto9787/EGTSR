@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS invalidation_tickets (
     trigger_ref TEXT,
     status TEXT NOT NULL,
     metadata_json TEXT NOT NULL DEFAULT '{}',
+    caused_by_ticket_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions(id)

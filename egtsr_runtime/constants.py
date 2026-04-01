@@ -13,3 +13,7 @@ REPORTS_DIR = "reports"
 DAEMON_DIR = "daemon"
 DAEMON_CONTROL_FILE = "control.json"
 DAEMON_SOCKET_NAME = "egtsr.sock"
+
+# Global runtime
+EXPORTS_DIR = "exports"
+MANIFEST_FILENAME = "manifest.json"

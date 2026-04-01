@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from egtsr_runtime.models import Event, RepoState, Session
 from egtsr_runtime.paths import ensure_runtime_dirs
+from egtsr_runtime.services.freshness_gate import FreshnessGateService
 from egtsr_runtime.services.raw_archive import archive_raw_event
 from egtsr_runtime.services.resume_gate import ResumeGateService
 from egtsr_runtime.services.repo_inspector import inspect_repo
@@ -82,7 +83,37 @@ class SessionBootstrapService:
             source=envelope.source,
             repo_dirty=repo_info.dirty,
         )
-        SnapshotWriter(ensure_runtime_dirs(envelope.cwd)).write_resume_gate(gate)
+        self._uow.resume_gate_repo.upsert(gate)
+        try:
+            SnapshotWriter(ensure_runtime_dirs(envelope.cwd)).write_resume_gate(gate)
+        except Exception:
+            pass  # JSON export is non-authoritative; DB is truth
+
+        # --- Freshness frontier ---
+        freshness_warning = None
+        try:
+            freshness_gate = FreshnessGateService(self._uow, envelope.cwd)
+            # 1. 기존 frontier 먼저 조회 (새 row 삽입 전)
+            prev = self._uow.freshness_repo.get_latest_by_source(
+                envelope.session_id, "session_start"
+            )
+            # 2. 현재 상태 수집 및 저장
+            frontier = freshness_gate.collect_frontier(
+                envelope.session_id, "session_start"
+            )
+            # 3. resume 시 이전 frontier와 비교
+            if not is_new_session and prev is not None:
+                from egtsr_runtime.models.freshness import compute_freshness_diff
+
+                diff = compute_freshness_diff(prev, frontier)
+                if diff.has_mismatch:
+                    freshness_warning = (
+                        f"freshness_mismatch: "
+                        f"{FreshnessGateService.describe_mismatch(diff)}"
+                    )
+        except Exception:
+            pass  # Freshness collection failure is non-fatal at session start
+
         additional_context = self._build_additional_context(
             session_id=envelope.session_id,
             source=envelope.source,
@@ -91,6 +122,7 @@ class SessionBootstrapService:
             gate=gate,
             is_new_session=is_new_session,
             archive_path=archive_path,
+            freshness_warning=freshness_warning,
         )
 
         self._uow.events.create(
@@ -135,8 +167,9 @@ class SessionBootstrapService:
         gate: object,
         is_new_session: bool,
         archive_path: str,
+        freshness_warning: str | None = None,
     ) -> str:
-        return (
+        ctx = (
             f"session_id={session_id}; "
             f"source={source or 'unknown'}; "
             f"safe_resume={str(safe_resume).lower()}; "
@@ -149,3 +182,6 @@ class SessionBootstrapService:
             f"dirty={str(bool(getattr(repo_info, 'dirty', False))).lower()}; "
             f"raw_archive={archive_path}"
         )
+        if freshness_warning:
+            ctx += f"; {freshness_warning}"
+        return ctx

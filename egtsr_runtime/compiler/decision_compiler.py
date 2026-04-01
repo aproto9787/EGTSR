@@ -60,6 +60,17 @@ class DecisionCapsuleCompiler:
             obligation_blocks.append(block)
             next_checks.append(f"{obligation.id}: {next_check}")
 
+        live_stale_assertion_ids = sorted(
+            ticket.subject_id
+            for ticket in data.invalidation_tickets
+            if ticket.status == InvalidationStatus.LIVE and ticket.subject_type == "assertion"
+        )
+        live_reopened_obligation_ids = [
+            obligation.id
+            for obligation in sorted_obligations
+            if obligation.status == ObligationStatus.REOPENED
+        ]
+
         capsule = DecisionCapsuleV0(
             header_obligations=header_obligations,
             warnings=warnings,
@@ -77,11 +88,10 @@ class DecisionCapsuleCompiler:
                     for ticket in sorted(data.invalidation_tickets, key=lambda item: (item.created_at or "", item.id))
                     if ticket.status == InvalidationStatus.LIVE
                 ],
-                "reopened_obligation_ids": [
-                    obligation.id
-                    for obligation in sorted_obligations
-                    if obligation.status == ObligationStatus.REOPENED
-                ],
+                "live_stale_evidence_ids": stale_evidence_ids_seen,
+                "live_stale_assertion_ids": live_stale_assertion_ids,
+                "live_reopened_obligation_ids": live_reopened_obligation_ids,
+                "reopened_obligation_ids": live_reopened_obligation_ids,
             },
         )
         capsule.rendered_text = render_capsule(capsule)

@@ -29,16 +29,25 @@ class SessionEndService:
         save_snapshot(self._uow, snapshot)
 
         latest_capsule = snapshot.capsules[-1] if snapshot.capsules else None
-        self._snapshot_writer.write_last_good_capsule(
-            self._serialize_capsule(latest_capsule, envelope.session_id, now)
-        )
 
         gate = self._load_current_gate(
             session_id=envelope.session_id,
             source=envelope.source,
             repo_dirty=bool(snapshot.repo_state and snapshot.repo_state.dirty),
         )
-        self._snapshot_writer.write_resume_gate(gate)
+        self._uow.resume_gate_repo.upsert(gate)
+
+        # JSON exports — non-authoritative, failure does not affect gate
+        try:
+            self._snapshot_writer.write_last_good_capsule(
+                self._serialize_capsule(latest_capsule, envelope.session_id, now)
+            )
+        except Exception:
+            pass
+        try:
+            self._snapshot_writer.write_resume_gate(gate)
+        except Exception:
+            pass
 
         self._uow.events.create(
             Event(
@@ -104,7 +113,7 @@ class SessionEndService:
         )
 
     def _load_current_gate(self, session_id: str, source: str | None, repo_dirty: bool) -> object:
-        stored_gate = self._snapshot_writer.read_resume_gate()
+        stored_gate = self._uow.resume_gate_repo.get(session_id)
         evaluated_gate = self._resume_gate.evaluate(
             session_id=session_id,
             source=source,

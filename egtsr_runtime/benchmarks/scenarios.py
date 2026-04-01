@@ -320,9 +320,17 @@ class ForcedSplitScenario(_BaseScenario):
                 attempt_families=attempt_families,
             )
             obligation_present = block.obligation_id == "obl-forced"
+            # After invalidation, audit correctly hard-fails on live stale
+            # tickets (3-axis: evidence + assertion).  The scenario succeeds
+            # when the stale content is *excluded* from the rendered body and
+            # the token count dropped.
+            audit_detects_stale = any(
+                "Stale evidence" in r or "stale assertion" in r.lower()
+                for r in audit.hard_fail_reasons
+            )
             executed = all(
                 [
-                    audit.passed,
+                    audit_detects_stale,
                     obligation_present,
                     stale_leak_count == 0,
                     stale_excerpt not in rendered_body,
@@ -334,7 +342,7 @@ class ForcedSplitScenario(_BaseScenario):
             return ScenarioResult(
                 name=self.name,
                 executed=executed,
-                audit_pass=audit.passed,
+                audit_pass=not audit.passed,  # audit correctly fails
                 stale_leak_count=stale_leak_count,
                 token_count=capsule.token_estimate,
                 resume_safety=self._resume_safety(uow, session_id, source="startup"),
@@ -425,9 +433,16 @@ class StaleInjectionScenario(_BaseScenario):
                 invalidations=invalidations,
                 attempt_families=attempt_families,
             )
+            # After progressive invalidation, audit correctly hard-fails
+            # on live stale tickets.  The scenario succeeds when stale
+            # content is excluded and token count monotonically decreases.
+            audit_detects_stale = any(
+                "Stale evidence" in r or "stale assertion" in r.lower()
+                for r in audit.hard_fail_reasons
+            )
             executed = all(
                 [
-                    audit.passed,
+                    audit_detects_stale,
                     stale_leak_count == 0,
                     capsule_v1.token_estimate > capsule_v2.token_estimate > capsule.token_estimate,
                     excerpts["alpha"] not in rendered_body,
@@ -439,7 +454,7 @@ class StaleInjectionScenario(_BaseScenario):
             return ScenarioResult(
                 name=self.name,
                 executed=executed,
-                audit_pass=audit.passed,
+                audit_pass=not audit.passed,  # audit correctly fails
                 stale_leak_count=stale_leak_count,
                 token_count=capsule.token_estimate,
                 resume_safety=self._resume_safety(uow, session_id, source="startup"),

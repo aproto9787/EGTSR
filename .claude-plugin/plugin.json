@@ -1,11 +1,21 @@
 {
   "name": "egtsr",
   "description": "Execution-Grounded Task-State Runtime — obligation tracking, stale quarantine, and resume safety for Claude Code",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": {
     "name": "argoss"
   },
   "homepage": "https://github.com/aproto9787/EGTSR",
   "repository": "https://github.com/aproto9787/EGTSR",
-  "license": "MIT"
+  "license": "MIT",
+  "userConfig": {
+    "egtsr_home": {
+      "description": "Custom EGTSR data directory. Leave empty for default (plugin data dir or ~/.local/share/egtsr)",
+      "sensitive": false
+    },
+    "python_path": {
+      "description": "Path to Python 3.12+ interpreter (default: python3)",
+      "sensitive": false
+    }
+  }
 }

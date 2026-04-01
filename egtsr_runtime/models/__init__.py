@@ -3,6 +3,7 @@ from egtsr_runtime.models.attempt_family import AttemptFamily
 from egtsr_runtime.models.capsule import Capsule
 from egtsr_runtime.models.event import Event
 from egtsr_runtime.models.evidence import Evidence
+from egtsr_runtime.models.freshness import FreshnessDiff, FreshnessFrontier
 from egtsr_runtime.models.invalidation import InvalidationTicket
 from egtsr_runtime.models.obligation import Obligation
 from egtsr_runtime.models.repo_state import RepoState
@@ -16,6 +17,8 @@ __all__ = [
     "Capsule",
     "Event",
     "Evidence",
+    "FreshnessDiff",
+    "FreshnessFrontier",
     "InvalidationTicket",
     "Obligation",
     "RepoState",

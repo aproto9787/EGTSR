@@ -4,7 +4,8 @@
       "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT:-.}/run_mcp.py"],
       "env": {
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT:-.}"
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT:-.}",
+        "EGTSR_HOME": "${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}"
       }
     }
   }

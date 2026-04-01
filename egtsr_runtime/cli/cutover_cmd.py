@@ -5,13 +5,14 @@ import json
 import sys
 from pathlib import Path
 
-from egtsr_runtime.constants import EGTSR_DIR_NAME, REPORTS_DIR
+from egtsr_runtime.constants import REPORTS_DIR
+from egtsr_runtime.runtime_locator import resolve_project_dir
 
 
 def run_cutover_status(project_dir: str) -> int:
     from egtsr_runtime.compat.cutover import CutoverManager
 
-    egtsr_dir = str(Path(project_dir).resolve() / EGTSR_DIR_NAME)
+    egtsr_dir = str(resolve_project_dir(project_dir))
     mgr = CutoverManager(egtsr_dir)
     state = mgr.status()
     flags = mgr.stage_flags(state.current_stage)
@@ -31,7 +32,7 @@ def run_cutover_status(project_dir: str) -> int:
 def run_cutover_advance(project_dir: str) -> int:
     from egtsr_runtime.compat.cutover import CutoverManager
 
-    egtsr_dir = str(Path(project_dir).resolve() / EGTSR_DIR_NAME)
+    egtsr_dir = str(resolve_project_dir(project_dir))
     mgr = CutoverManager(egtsr_dir)
     try:
         state = mgr.advance()
@@ -50,7 +51,7 @@ def run_cutover_advance(project_dir: str) -> int:
 def run_cutover_set(stage: str, project_dir: str) -> int:
     from egtsr_runtime.compat.cutover import CutoverManager
 
-    egtsr_dir = str(Path(project_dir).resolve() / EGTSR_DIR_NAME)
+    egtsr_dir = str(resolve_project_dir(project_dir))
     mgr = CutoverManager(egtsr_dir)
     try:
         state = mgr.set_stage(stage)  # type: ignore[arg-type]
@@ -69,7 +70,7 @@ def run_cutover_set(stage: str, project_dir: str) -> int:
 def run_rollback(level: str, project_dir: str) -> int:
     from egtsr_runtime.compat.cutover import CutoverManager
 
-    egtsr_dir = str(Path(project_dir).resolve() / EGTSR_DIR_NAME)
+    egtsr_dir = str(resolve_project_dir(project_dir))
     mgr = CutoverManager(egtsr_dir)
 
     # Stop daemon if running
@@ -89,7 +90,7 @@ def run_rollback(level: str, project_dir: str) -> int:
 def run_release_check(project_dir: str, save_report: bool = False) -> int:
     from egtsr_runtime.compat.release_check import ReleaseChecker, save_release_report
 
-    egtsr_dir = str(Path(project_dir).resolve() / EGTSR_DIR_NAME)
+    egtsr_dir = str(resolve_project_dir(project_dir))
     checker = ReleaseChecker(egtsr_dir)
     report = checker.run_all()
 

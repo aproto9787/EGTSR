@@ -74,14 +74,24 @@ class SqliteInvalidationRepository:
         ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def list_live_by_subject_type(self, session_id: str, subject_type: str) -> list[InvalidationTicket]:
+        rows = self.conn.execute(
+            """SELECT * FROM invalidation_tickets
+               WHERE session_id = ? AND subject_type = ? AND status = ?
+               ORDER BY created_at, id""",
+            (session_id, subject_type, InvalidationStatus.LIVE.value),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
     def upsert(self, ticket: InvalidationTicket) -> None:
         self.conn.execute(
             """
             INSERT INTO invalidation_tickets (
                 id, session_id, subject_type, subject_id, trigger_kind,
-                trigger_ref, status, metadata_json, created_at, updated_at
+                trigger_ref, status, metadata_json, caused_by_ticket_id,
+                created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 session_id = excluded.session_id,
                 subject_type = excluded.subject_type,
@@ -90,6 +100,7 @@ class SqliteInvalidationRepository:
                 trigger_ref = excluded.trigger_ref,
                 status = excluded.status,
                 metadata_json = excluded.metadata_json,
+                caused_by_ticket_id = excluded.caused_by_ticket_id,
                 created_at = excluded.created_at,
                 updated_at = excluded.updated_at
             """,
@@ -102,6 +113,7 @@ class SqliteInvalidationRepository:
                 ticket.trigger_ref,
                 ticket.status.value,
                 dump_json(ticket.metadata),
+                ticket.caused_by_ticket_id,
                 ticket.created_at,
                 ticket.updated_at,
             ),
@@ -109,6 +121,8 @@ class SqliteInvalidationRepository:
 
     @staticmethod
     def _from_row(row: sqlite3.Row) -> InvalidationTicket:
+        keys = row.keys() if hasattr(row, "keys") else []
+        caused_by = row["caused_by_ticket_id"] if "caused_by_ticket_id" in keys else None
         return InvalidationTicket(
             id=row["id"],
             session_id=row["session_id"],
@@ -118,6 +132,7 @@ class SqliteInvalidationRepository:
             trigger_ref=row["trigger_ref"],
             status=InvalidationStatus(row["status"]),
             metadata=load_dict(row["metadata_json"]),
+            caused_by_ticket_id=caused_by,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )

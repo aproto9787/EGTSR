@@ -8,7 +8,6 @@ import unittest
 
 from egtsr_runtime.constants import (
     DB_FILENAME,
-    EGTSR_DIR_NAME,
     LAST_GOOD_CAPSULE,
     LOG_FILENAME,
     RESUME_GATE,
@@ -24,10 +23,19 @@ def _make_valid_db(db_path: str) -> None:
     conn.close()
 
 
+def _resolve_egtsr_dir(repo_root: str) -> str:
+    from egtsr_runtime.runtime_locator import resolve_project_dir
+
+    return str(resolve_project_dir(repo_root))
+
+
 def _make_valid_egtsr(tmp: str) -> tuple[str, str, str]:
-    """Create a valid .egtsr directory with required artifacts. Returns (repo_root, egtsr_dir, db_path)."""
+    """Create valid runtime artifacts in the global shard for repo_root.
+
+    Returns (repo_root, egtsr_dir, db_path).
+    """
     repo_root = tmp
-    egtsr_dir = os.path.join(tmp, EGTSR_DIR_NAME)
+    egtsr_dir = _resolve_egtsr_dir(tmp)
     os.makedirs(egtsr_dir, exist_ok=True)
 
     db_path = os.path.join(egtsr_dir, DB_FILENAME)
@@ -74,6 +82,18 @@ def _make_settings_local_config(repo_root: str) -> None:
 
 
 class TestRecoveryCLI(unittest.TestCase):
+    def setUp(self):
+        self._egtsr_home_tmp = tempfile.TemporaryDirectory()
+        self._orig_egtsr_home = os.environ.get("EGTSR_HOME")
+        os.environ["EGTSR_HOME"] = self._egtsr_home_tmp.name
+
+    def tearDown(self):
+        if self._orig_egtsr_home is not None:
+            os.environ["EGTSR_HOME"] = self._orig_egtsr_home
+        else:
+            os.environ.pop("EGTSR_HOME", None)
+        self._egtsr_home_tmp.cleanup()
+
     def test_doctor_healthy(self):
         """Doctor with valid DB/artifacts returns no issues"""
         with tempfile.TemporaryDirectory() as tmp:
@@ -88,9 +108,7 @@ class TestRecoveryCLI(unittest.TestCase):
     def test_doctor_missing_db(self):
         """Doctor detects missing DB"""
         with tempfile.TemporaryDirectory() as tmp:
-            egtsr_dir = os.path.join(tmp, EGTSR_DIR_NAME)
-            os.makedirs(egtsr_dir)
-            # no DB created
+            # Don't create any artifacts — doctor should detect missing DB
             cli = RecoveryCLI()
             result = cli.doctor(tmp)
         issues = result["issues"]
@@ -117,10 +135,21 @@ class TestRecoveryCLI(unittest.TestCase):
             result = cli.doctor(tmp)
         self.assertEqual(result["issues"], [])
 
+
+class TestHealthChecker(unittest.TestCase):
+    """HealthChecker tests — these pass egtsr_dir directly, no locator needed."""
+
     def test_health_checker_all_ok(self):
         """HealthChecker with valid setup returns overall=True"""
         with tempfile.TemporaryDirectory() as tmp:
-            _, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            egtsr_dir = tmp
+            db_path = os.path.join(egtsr_dir, DB_FILENAME)
+            _make_valid_db(db_path)
+            for artifact in [RESUME_GATE, LAST_GOOD_CAPSULE]:
+                with open(os.path.join(egtsr_dir, artifact), "w") as f:
+                    json.dump({}, f)
+            open(os.path.join(egtsr_dir, LOG_FILENAME), "a").close()
+
             checker = HealthChecker()
             result = checker.check(db_path, egtsr_dir)
         self.assertTrue(result["db_ok"])
@@ -130,11 +159,17 @@ class TestRecoveryCLI(unittest.TestCase):
         self.assertTrue(result["log_ok"])
         self.assertTrue(result["overall"])
         self.assertEqual(result["issues"], [])
+        self.assertEqual(result["warnings"], [])
 
     def test_health_checker_corrupt_db(self):
         """HealthChecker detects corrupt DB"""
         with tempfile.TemporaryDirectory() as tmp:
-            _, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            egtsr_dir = tmp
+            db_path = os.path.join(egtsr_dir, DB_FILENAME)
+            _make_valid_db(db_path)
+            for artifact in [RESUME_GATE, LAST_GOOD_CAPSULE]:
+                with open(os.path.join(egtsr_dir, artifact), "w") as f:
+                    json.dump({}, f)
             # corrupt the DB
             with open(db_path, "w") as f:
                 f.write("not a sqlite database!!!")
@@ -145,24 +180,38 @@ class TestRecoveryCLI(unittest.TestCase):
         self.assertTrue(len(result["issues"]) > 0)
 
     def test_health_checker_missing_gate(self):
-        """HealthChecker detects missing resume_gate.json"""
+        """HealthChecker detects missing resume_gate.json as soft warning"""
         with tempfile.TemporaryDirectory() as tmp:
-            _, egtsr_dir, db_path = _make_valid_egtsr(tmp)
-            os.remove(os.path.join(egtsr_dir, RESUME_GATE))
+            egtsr_dir = tmp
+            db_path = os.path.join(egtsr_dir, DB_FILENAME)
+            _make_valid_db(db_path)
+            # Only create capsule, not gate
+            with open(os.path.join(egtsr_dir, LAST_GOOD_CAPSULE), "w") as f:
+                json.dump({}, f)
+            open(os.path.join(egtsr_dir, LOG_FILENAME), "a").close()
             checker = HealthChecker()
             result = checker.check(db_path, egtsr_dir)
         self.assertFalse(result["gate_ok"])
-        self.assertFalse(result["overall"])
+        # JSON artifacts are export-only; overall health still passes
+        self.assertTrue(result["overall"])
+        self.assertTrue(len(result["warnings"]) > 0)
 
     def test_health_checker_missing_capsule(self):
-        """HealthChecker detects missing last_good_decision_capsule.json"""
+        """HealthChecker detects missing capsule JSON as soft warning"""
         with tempfile.TemporaryDirectory() as tmp:
-            _, egtsr_dir, db_path = _make_valid_egtsr(tmp)
-            os.remove(os.path.join(egtsr_dir, LAST_GOOD_CAPSULE))
+            egtsr_dir = tmp
+            db_path = os.path.join(egtsr_dir, DB_FILENAME)
+            _make_valid_db(db_path)
+            # Only create gate, not capsule
+            with open(os.path.join(egtsr_dir, RESUME_GATE), "w") as f:
+                json.dump({}, f)
+            open(os.path.join(egtsr_dir, LOG_FILENAME), "a").close()
             checker = HealthChecker()
             result = checker.check(db_path, egtsr_dir)
         self.assertFalse(result["capsule_ok"])
-        self.assertFalse(result["overall"])
+        # JSON artifacts are export-only; overall health still passes
+        self.assertTrue(result["overall"])
+        self.assertTrue(len(result["warnings"]) > 0)
 
 
 if __name__ == "__main__":

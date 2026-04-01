@@ -27,18 +27,18 @@ class TestBenchmarkScenarios(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def test_forced_split_reproducible(self):
-        """Forced split scenario runs and returns executed=True, audit_pass=True"""
+        """Forced split scenario runs and returns executed=True, audit detects stale"""
         result = ForcedSplitScenario().run(self._db_path("forced_split"))
 
         self.assertTrue(result.executed)
-        self.assertTrue(result.audit_pass)
+        self.assertTrue(result.audit_pass)  # audit correctly detects stale
 
     def test_stale_injection_reproducible(self):
         """Stale injection scenario runs and returns executed=True"""
         result = StaleInjectionScenario().run(self._db_path("stale_injection"))
 
         self.assertTrue(result.executed)
-        self.assertTrue(result.audit_pass)
+        self.assertTrue(result.audit_pass)  # audit correctly detects stale
 
     def test_repeated_failure_reproducible(self):
         """Repeated failure scenario runs and returns executed=True"""

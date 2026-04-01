@@ -184,6 +184,12 @@ class TestRegistry(unittest.TestCase):
 class TestDaemonServer(unittest.TestCase):
     """Start a real daemon in a thread and test roundtrips."""
 
+    @staticmethod
+    def _resolve_egtsr_dir(repo_root: str) -> str:
+        from egtsr_runtime.runtime_locator import resolve_project_dir
+
+        return str(resolve_project_dir(repo_root))
+
     def _start_server(self, repo_root: str, idle_timeout: int = 5):
         from egtsr_runtime.daemon.server import DaemonServer
 
@@ -192,7 +198,7 @@ class TestDaemonServer(unittest.TestCase):
         t = threading.Thread(target=server.serve, daemon=True)
         t.start()
         # Wait for socket to be ready
-        egtsr_dir = str(Path(repo_root) / ".egtsr")
+        egtsr_dir = self._resolve_egtsr_dir(repo_root)
         for _ in range(20):
             time.sleep(0.05)
             info = read_control(egtsr_dir)
@@ -201,7 +207,7 @@ class TestDaemonServer(unittest.TestCase):
         return server, t
 
     def _connect_to(self, repo_root: str) -> socket.socket:
-        egtsr_dir = str(Path(repo_root) / ".egtsr")
+        egtsr_dir = self._resolve_egtsr_dir(repo_root)
         info = read_control(egtsr_dir)
         self.assertIsNotNone(info, "control file not found")
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -368,7 +374,7 @@ class TestDaemonServer(unittest.TestCase):
     def test_control_file_cleanup_after_shutdown(self):
         with tempfile.TemporaryDirectory() as tmp:
             server, t = self._start_server(tmp)
-            egtsr_dir = str(Path(tmp) / ".egtsr")
+            egtsr_dir = self._resolve_egtsr_dir(tmp)
 
             # Verify control file exists while running
             self.assertIsNotNone(read_control(egtsr_dir))

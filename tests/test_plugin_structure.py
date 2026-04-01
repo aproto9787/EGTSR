@@ -11,10 +11,10 @@ SKILL_NAMES = [
     "egtsr-doctor",
 ]
 EXPECTED_HOOK_COMMANDS = {
-    "SessionStart": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_start',
-    "UserPromptSubmit": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit',
-    "PostToolUse": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint post_tool_use',
-    "SessionEnd": 'PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_end',
+    "SessionStart": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_start',
+    "UserPromptSubmit": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit',
+    "PostToolUse": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint post_tool_use',
+    "SessionEnd": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_end',
 }
 
 
@@ -31,7 +31,7 @@ class TestPluginStructure(unittest.TestCase):
             data["description"],
             "Execution-Grounded Task-State Runtime — obligation tracking, stale quarantine, and resume safety for Claude Code",
         )
-        self.assertEqual(data["version"], "0.1.1")
+        self.assertEqual(data["version"], "0.2.0")
         self.assertEqual(data["author"], {"name": "argoss"})
         self.assertEqual(data["homepage"], "https://github.com/aproto9787/EGTSR")
         self.assertEqual(data["repository"], "https://github.com/aproto9787/EGTSR")
@@ -43,13 +43,13 @@ class TestPluginStructure(unittest.TestCase):
     def test_marketplace_json_valid(self):
         """marketplace.json exists and exposes egtsr plugin metadata"""
         data = json.loads((PLUGIN_ROOT / "marketplace.json").read_text())
-        self.assertEqual(data["name"], "aproto9787-egtsr")
-        self.assertEqual(data["owner"], {"name": "argoss"})
+        self.assertEqual(data["name"], "egtsr-runtime")
+        self.assertEqual(data["owner"], {"name": "aproto9787"})
         self.assertEqual(
             data["metadata"],
             {
-                "description": "EGTSR — Execution-Grounded Task-State Runtime for Claude Code",
-                "version": "0.1.1",
+                "description": "Execution-Grounded Task-State Runtime for Claude Code — obligation-first, freshness-gated, SQLite-backed task state runtime",
+                "version": "0.2.0",
             },
         )
         self.assertEqual(len(data["plugins"]), 1)
@@ -58,8 +58,8 @@ class TestPluginStructure(unittest.TestCase):
             {
                 "name": "egtsr",
                 "source": "./",
-                "description": "Obligation tracking, stale quarantine, and resume safety for Claude Code",
-                "author": {"name": "argoss"},
+                "description": "EGTSR runtime plugin — hooks, MCP server, and skills for task-state safety",
+                "version": "0.2.0",
             },
         )
 

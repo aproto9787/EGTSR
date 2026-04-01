@@ -15,16 +15,6 @@ import sys
 from pathlib import Path
 from typing import Any, TextIO
 
-from egtsr_runtime.constants import (
-    DB_FILENAME,
-    DEBUG_DIR,
-    EGTSR_DIR_NAME,
-    LAST_GOOD_CAPSULE,
-    LOG_FILENAME,
-    RAW_EVENTS_DIR,
-    REPORTS_DIR,
-    RESUME_GATE,
-)
 from egtsr_runtime.db.runtime import SqliteRuntime
 from egtsr_runtime.db.uow import SqliteUnitOfWork
 from egtsr_runtime.mcp.inspect import InspectService
@@ -257,19 +247,9 @@ class EGTSRMCPServer:
 
     @staticmethod
     def _resolve_runtime_paths(project_dir: str) -> RuntimePaths:
-        root = Path(project_dir).expanduser().resolve()
-        egtsr_dir = root / EGTSR_DIR_NAME
-        return RuntimePaths(
-            repo_root=str(root),
-            egtsr_dir=str(egtsr_dir),
-            db_path=str(egtsr_dir / DB_FILENAME),
-            log_path=str(egtsr_dir / LOG_FILENAME),
-            last_good_capsule_path=str(egtsr_dir / LAST_GOOD_CAPSULE),
-            resume_gate_path=str(egtsr_dir / RESUME_GATE),
-            raw_events_dir=str(egtsr_dir / RAW_EVENTS_DIR),
-            debug_dir=str(egtsr_dir / DEBUG_DIR),
-            reports_dir=str(egtsr_dir / REPORTS_DIR),
-        )
+        from egtsr_runtime.runtime_locator import resolve_project_runtime_paths
+
+        return resolve_project_runtime_paths(project_dir)
 
     def _error_tool_result(self, req_id: Any, message: str) -> dict[str, Any]:
         return {

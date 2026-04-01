@@ -52,8 +52,12 @@ def _load_all_migrations() -> list[MigrationSpec]:
     from egtsr_runtime.db.migrations.m0001_initial import MIGRATION as m0001
     from egtsr_runtime.db.migrations.m0002_projection_tables import MIGRATION as m0002
     from egtsr_runtime.db.migrations.m0003_targeted_query_indexes import MIGRATION as m0003
+    from egtsr_runtime.db.migrations.m0004_global_runtime import MIGRATION as m0004
+    from egtsr_runtime.db.migrations.m0005_resume_gate_state import MIGRATION as m0005
+    from egtsr_runtime.db.migrations.m0006_freshness_frontiers import MIGRATION as m0006
+    from egtsr_runtime.db.migrations.m0007_invalidation_lineage import MIGRATION as m0007
 
-    return sorted([m0001, m0002, m0003], key=lambda m: m.version)
+    return sorted([m0001, m0002, m0003, m0004, m0005, m0006, m0007], key=lambda m: m.version)
 
 
 def run_registry_migrations(conn: sqlite3.Connection) -> None:

@@ -16,5 +16,6 @@ class InvalidationTicket:
     trigger_ref: str | None = None
     status: InvalidationStatus = InvalidationStatus.LIVE
     metadata: dict[str, Any] = field(default_factory=dict)
+    caused_by_ticket_id: str | None = None
     created_at: str = ""
     updated_at: str = ""

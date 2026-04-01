@@ -231,11 +231,15 @@ class TestReverseIndexBasicInvalidation(_BaseReverseIndexTest):
         with SqliteUnitOfWork(self.config.db_path) as uow:
             tickets = uow.invalidations.list_for_session(self.session_id)
 
-        self.assertEqual(len(tickets), 1)
-        self.assertEqual(tickets[0].subject_type, "assertion")
-        self.assertEqual(tickets[0].subject_id, "as-1")
-        self.assertEqual(tickets[0].trigger_kind, "file_touch")
-        self.assertEqual(tickets[0].trigger_ref, "src/main.py")
+        self.assertEqual(len(tickets), 2)  # evidence + assertion tickets
+        evidence_tickets = [t for t in tickets if t.subject_type == "evidence"]
+        assertion_tickets = [t for t in tickets if t.subject_type == "assertion"]
+        self.assertEqual(len(evidence_tickets), 1)
+        self.assertEqual(evidence_tickets[0].subject_id, "ev-1")
+        self.assertEqual(len(assertion_tickets), 1)
+        self.assertEqual(assertion_tickets[0].subject_id, "as-1")
+        self.assertEqual(assertion_tickets[0].trigger_kind, "file_touch")
+        self.assertEqual(assertion_tickets[0].trigger_ref, "src/main.py")
 
 
 class TestReverseIndexReopenSemantics(_BaseReverseIndexTest):

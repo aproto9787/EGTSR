@@ -4,15 +4,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from egtsr_runtime.constants import DB_FILENAME, EGTSR_DIR_NAME
 from egtsr_runtime.db.runtime import SqliteRuntime
 from egtsr_runtime.db.uow import SqliteUnitOfWork
 from egtsr_runtime.mcp.inspect import InspectService
+from egtsr_runtime.runtime_locator import resolve_project_dir
 
 
 def run_inspect(target: str, session_id: str, project_dir: str = ".") -> None:
     """Run inspect command and pretty-print JSON result."""
-    db_path = Path(project_dir).expanduser().resolve() / EGTSR_DIR_NAME / DB_FILENAME
+    from egtsr_runtime.constants import DB_FILENAME
+
+    db_path = resolve_project_dir(project_dir) / DB_FILENAME
     if not db_path.exists():
         raise SystemExit(f"EGTSR DB not found: {db_path}")
 

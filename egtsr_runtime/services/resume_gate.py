@@ -72,11 +72,24 @@ class ResumeGateService:
         return gate
 
     @staticmethod
-    def should_block_prompt(gate: ResumeGateState, prompt_intent: str) -> bool:
-        """Block edit/mixed while the gate is active."""
+    def should_block_prompt(gate: ResumeGateState, prompt_intent) -> bool:
+        """Block write-risk prompts while the gate is active.
 
+        Accepts either a v2 ``PromptRiskFlags`` instance or a legacy v1
+        intent string for backward compatibility.
+        """
         if not gate.edit_blocked:
             return False
+
+        # v2 risk-flag path
+        from egtsr_runtime.compiler.prompt_intent_v2 import PromptRiskFlags
+
+        if isinstance(prompt_intent, PromptRiskFlags):
+            if prompt_intent.requests_write or prompt_intent.requests_repo_mutation or prompt_intent.ambiguous:
+                return True
+            return False
+
+        # v1 string path (deprecated)
         if prompt_intent in {"read", "inspect", "test"}:
             return False
         return True

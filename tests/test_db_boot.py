@@ -82,7 +82,7 @@ class TestMigrationRegistry(unittest.TestCase):
             finally:
                 conn.close()
 
-        self.assertEqual(applied, {1, 2, 3})
+        self.assertEqual(applied, {1, 2, 3, 4, 5, 6, 7})
 
 
 class TestLegacyUpgrade(unittest.TestCase):
@@ -179,7 +179,7 @@ class TestSqliteRuntime(unittest.TestCase):
                 ).fetchone()[0]
 
                 self.assertEqual(count_before, count_after)
-                self.assertEqual(count_after, 3)
+                self.assertEqual(count_after, 7)
             finally:
                 runtime.shutdown()
 

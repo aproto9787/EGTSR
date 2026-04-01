@@ -15,11 +15,13 @@ from egtsr_runtime.repositories import (
     SqliteCapsuleRepository,
     SqliteEventRepository,
     SqliteEvidenceRepository,
+    SqliteFreshnessRepository,
     SqliteInvalidationRepository,
     SqliteObligationFrontierRepository,
     SqliteObligationRepository,
     SqlitePathSubjectIndexRepository,
     SqliteRepoStateRepository,
+    SqliteResumeGateRepository,
     SqliteSessionFrontierRepository,
     SqliteSessionRepository,
     SqliteVerifyRepository,
@@ -54,6 +56,8 @@ class SqliteUnitOfWork:
     capsules: SqliteCapsuleRepository
     events: SqliteEventRepository
     repo_state: SqliteRepoStateRepository
+    resume_gate_repo: SqliteResumeGateRepository
+    freshness_repo: SqliteFreshnessRepository
     # Projection repositories
     path_subject_index: SqlitePathSubjectIndexRepository
     assertion_evidence_links: SqliteAssertionEvidenceLinkRepository
@@ -116,6 +120,8 @@ class SqliteUnitOfWork:
         self.capsules = SqliteCapsuleRepository(conn)
         self.events = SqliteEventRepository(conn)
         self.repo_state = SqliteRepoStateRepository(conn)
+        self.resume_gate_repo = SqliteResumeGateRepository(conn)
+        self.freshness_repo = SqliteFreshnessRepository(conn)
         # Projection repositories
         self.path_subject_index = SqlitePathSubjectIndexRepository(conn)
         self.assertion_evidence_links = SqliteAssertionEvidenceLinkRepository(conn)

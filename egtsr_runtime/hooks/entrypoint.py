@@ -15,7 +15,7 @@ import sys
 
 def main() -> None:
     if len(sys.argv) < 2:
-        _fail_open("no hook_name argument")
+        _fail_response("unknown", "no hook_name argument")
         return
 
     hook_name = sys.argv[1]
@@ -33,7 +33,7 @@ def main() -> None:
 
         envelope = parse_hook_stdin(raw_text)
     except Exception as exc:
-        _fail_open(f"parse_error: {exc}")
+        _fail_response(hook_name, f"parse_error: {exc}")
         return
 
     try:
@@ -42,7 +42,7 @@ def main() -> None:
         result, _timing = timed_hook(hook_name, lambda: _dispatch(hook_name, envelope))
         print(json.dumps(result, ensure_ascii=False))
     except Exception as exc:
-        _fail_open(f"dispatch_error: {exc}")
+        _fail_response(hook_name, f"dispatch_error: {exc}")
 
 
 def _try_daemon(hook_name: str, raw_text: str) -> dict | None:
@@ -57,9 +57,9 @@ def _try_daemon(hook_name: str, raw_text: str) -> dict | None:
         if not isinstance(cwd, str) or not cwd:
             return None
 
-        from pathlib import Path
+        from egtsr_runtime.runtime_locator import resolve_project_dir
 
-        egtsr_dir = str(Path(cwd).expanduser().resolve() / ".egtsr")
+        egtsr_dir = str(resolve_project_dir(cwd))
 
         if not _is_daemon_enabled(egtsr_dir):
             return None
@@ -149,14 +149,28 @@ def _dispatch(hook_name: str, envelope) -> dict:
             return build_allow_response(envelope.hook_event_name)
 
 
-def _fail_open(reason: str) -> None:
-    """Output fail-open response and exit 0 so Claude Code continues."""
-    response = {
-        "hookSpecificOutput": {
-            "additionalContext": f"egtsr_entrypoint_fail_open: {reason}",
-        },
-        "suppressOutput": False,
-    }
+def _fail_response(hook_name: str, reason: str) -> None:
+    """Output fail-closed (block) for user_prompt_submit, fail-open (allow) for others.
+
+    user_prompt_submit is the safety-critical gate: any exception must block
+    to prevent unvetted prompts from passing through.  All other hooks may
+    fall back to allow so Claude Code is not entirely stalled.
+    """
+    if hook_name == "user_prompt_submit":
+        response = {
+            "decision": "block",
+            "reason": f"egtsr_fail_closed: {reason}",
+            "hookSpecificOutput": {
+                "additionalContext": f"egtsr_fail_closed: {reason}",
+            },
+        }
+    else:
+        response = {
+            "hookSpecificOutput": {
+                "additionalContext": f"egtsr_entrypoint_fail_open: {reason}",
+            },
+            "suppressOutput": False,
+        }
     print(json.dumps(response, ensure_ascii=False))
 
 

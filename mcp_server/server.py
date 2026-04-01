@@ -94,7 +94,8 @@ class EGTSRMCPServer:
                 break
             response = self._handle_request(request)
             if response is not None:
-                output_stream.write(json.dumps(response, ensure_ascii=False) + "\n")
+                body = json.dumps(response, ensure_ascii=False)
+                output_stream.write(f"Content-Length: {len(body.encode('utf-8'))}\r\n\r\n{body}")
                 output_stream.flush()
 
     def _read_message(self, stream: TextIO) -> dict[str, Any] | None:

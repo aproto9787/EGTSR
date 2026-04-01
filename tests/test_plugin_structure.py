@@ -11,10 +11,10 @@ SKILL_NAMES = [
     "egtsr-doctor",
 ]
 EXPECTED_HOOK_COMMANDS = {
-    "SessionStart": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_start',
-    "UserPromptSubmit": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit',
-    "PostToolUse": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint post_tool_use',
-    "SessionEnd": 'EGTSR_HOME="${user_config.egtsr_home:-${CLAUDE_PLUGIN_DATA:-.egtsr}}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_end',
+    "SessionStart": 'EGTSR_HOME="${CLAUDE_PLUGIN_DATA:-.egtsr}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_start',
+    "UserPromptSubmit": 'EGTSR_HOME="${CLAUDE_PLUGIN_DATA:-.egtsr}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint user_prompt_submit',
+    "PostToolUse": 'EGTSR_HOME="${CLAUDE_PLUGIN_DATA:-.egtsr}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint post_tool_use',
+    "SessionEnd": 'EGTSR_HOME="${CLAUDE_PLUGIN_DATA:-.egtsr}" PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m egtsr_runtime.hooks.entrypoint session_end',
 }
 
 

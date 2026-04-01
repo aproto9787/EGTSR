@@ -10,10 +10,14 @@
   "license": "MIT",
   "userConfig": {
     "egtsr_home": {
+      "title": "EGTSR Home Directory",
+      "type": "directory",
       "description": "Custom EGTSR data directory. Leave empty for default (plugin data dir or ~/.local/share/egtsr)",
       "sensitive": false
     },
     "python_path": {
+      "title": "Python Interpreter Path",
+      "type": "string",
       "description": "Path to Python 3.12+ interpreter (default: python3)",
       "sensitive": false
     }

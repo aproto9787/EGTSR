@@ -14,6 +14,7 @@ from egtsr_runtime.benchmarks.regression_gate import (
     GateThresholds,
     RegressionGate,
     RegressionGateReport,
+    generate_judgment_report,
     load_baseline,
     save_gate_report,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "GateCheck",
     "GateThresholds",
     "GoNoGoEvaluator",
+    "generate_judgment_report",
     "HookLatencyEntry",
     "LatencyBenchmark",
     "LatencyPercentileReport",

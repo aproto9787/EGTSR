@@ -4,7 +4,7 @@ Usage:
   egtsr setup [--project-dir PATH]      Register hooks in project
   egtsr doctor [--project-dir PATH]     Diagnose runtime health
   egtsr inspect <command> <session_id> [--project-dir PATH]  Inspect session state
-  egtsr benchmark [--project-dir PATH]  Run benchmark harness
+  egtsr benchmark [--format json|markdown] [--project-dir PATH]  Run benchmark harness
   egtsr benchmark latency [--project-dir PATH]   Hook latency benchmark
   egtsr benchmark latency-pct [--iterations N] [--project-dir PATH]  Latency percentiles
   egtsr benchmark cold-warm [--project-dir PATH] Cold vs warm daemon latency
@@ -21,6 +21,8 @@ Usage:
   egtsr cutover set <stage> [--project-dir PATH]  Set specific stage
   egtsr rollback [--level minimal|medium|full] [--project-dir PATH]  Rollback
   egtsr release check [--save-report] [--project-dir PATH]  Release checklist
+  egtsr reset-checkpoint [--yes] [--project-dir PATH]  Reset to clean state
+  egtsr inspect-corruption [--project-dir PATH]  DB integrity check
   egtsr uninstall [--project-dir PATH]  Remove hooks from project
   egtsr --version                       Show version
   egtsr --help                          Show help
@@ -80,6 +82,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--save-report", action="store_true", default=False,
         help="Save report to runtime reports directory",
     )
+    bench_p.add_argument(
+        "--format", default="json", choices=["json", "markdown"],
+        help="Output format (default: json)",
+    )
     bench_sub = bench_p.add_subparsers(dest="bench_mode")
     bench_sub.add_parser("latency", help="Hook latency benchmark")
 
@@ -138,6 +144,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save report to runtime reports directory",
     )
 
+    reset_p = subparsers.add_parser("reset-checkpoint", help="Reset to last clean checkpoint")
+    reset_p.add_argument("--project-dir", default=".", help="Project directory")
+    reset_p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
+
+    inspect_corrupt_p = subparsers.add_parser("inspect-corruption", help="Inspect DB integrity")
+    inspect_corrupt_p.add_argument("--project-dir", default=".", help="Project directory")
+
     migrate_p = subparsers.add_parser("migrate", help="Migrate legacy .egtsr/ to global runtime")
     migrate_p.add_argument("--project-dir", default=".", help="Project directory")
 
@@ -188,7 +201,8 @@ def main(argv: list[str] | None = None) -> int:
             baseline_path = getattr(args, "baseline", None)
             return run_benchmark_gate(baseline_path=baseline_path, reports_dir=reports_dir)
         else:
-            run_benchmark(args.project_dir)
+            fmt = getattr(args, "format", "json")
+            run_benchmark(args.project_dir, fmt=fmt)
         return 0
 
     if args.command == "metrics":
@@ -207,6 +221,27 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "release":
         return _handle_release(args)
+
+    if args.command == "reset-checkpoint":
+        if not getattr(args, "yes", False):
+            print("WARNING: This will clear stale tickets and failed attempts.")
+            print("Use --yes to skip this confirmation.")
+            try:
+                answer = input("Continue? [y/N] ")
+            except (EOFError, KeyboardInterrupt):
+                print("\nAborted.")
+                return 1
+            if answer.strip().lower() not in ("y", "yes"):
+                print("Aborted.")
+                return 1
+        result = RecoveryCLI().reset_to_checkpoint(args.project_dir)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0 if result.get("reset") else 1
+
+    if args.command == "inspect-corruption":
+        result = RecoveryCLI().inspect_corruption(args.project_dir)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0 if result.get("integrity") == "ok" else 1
 
     if args.command == "migrate":
         from egtsr_runtime.cli.migrate_global import migrate_to_global

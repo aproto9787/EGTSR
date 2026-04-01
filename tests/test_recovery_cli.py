@@ -136,6 +136,149 @@ class TestRecoveryCLI(unittest.TestCase):
         self.assertEqual(result["issues"], [])
 
 
+class TestResetToCheckpoint(unittest.TestCase):
+    def setUp(self):
+        self._egtsr_home_tmp = tempfile.TemporaryDirectory()
+        self._orig_egtsr_home = os.environ.get("EGTSR_HOME")
+        os.environ["EGTSR_HOME"] = self._egtsr_home_tmp.name
+
+    def tearDown(self):
+        if self._orig_egtsr_home is not None:
+            os.environ["EGTSR_HOME"] = self._orig_egtsr_home
+        else:
+            os.environ.pop("EGTSR_HOME", None)
+        self._egtsr_home_tmp.cleanup()
+
+    def test_reset_no_db(self):
+        """Reset returns False when DB is missing"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cli = RecoveryCLI()
+            result = cli.reset_to_checkpoint(tmp)
+        self.assertFalse(result["reset"])
+        self.assertIn("not found", result["detail"].lower())
+
+    def test_reset_clears_stale_tickets(self):
+        """Reset clears stale invalidation tickets"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            conn = sqlite3.connect(db_path)
+            # Insert a session and a stale ticket
+            conn.execute(
+                "INSERT INTO sessions (id, repo_root, status, created_at, updated_at) "
+                "VALUES ('s1', ?, 'ended', '2025-01-01', '2025-01-01')",
+                (tmp,),
+            )
+            conn.execute(
+                "INSERT INTO invalidation_tickets "
+                "(id, session_id, subject_type, subject_id, trigger_kind, status, created_at, updated_at) "
+                "VALUES ('t1', 's1', 'assertion', 'a1', 'file_change', 'stale', '2025-01-01', '2025-01-01')"
+            )
+            conn.commit()
+            conn.close()
+
+            cli = RecoveryCLI()
+            result = cli.reset_to_checkpoint(tmp)
+        self.assertTrue(result["reset"])
+        self.assertEqual(result["cleared"]["stale_tickets"], 1)
+
+    def test_reset_clears_failed_attempts(self):
+        """Reset clears failed attempt families"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "INSERT INTO sessions (id, repo_root, status, created_at, updated_at) "
+                "VALUES ('s1', ?, 'ended', '2025-01-01', '2025-01-01')",
+                (tmp,),
+            )
+            conn.execute(
+                "INSERT INTO attempt_families "
+                "(id, session_id, signature, last_outcome, fail_count, created_at, updated_at) "
+                "VALUES ('af1', 's1', 'sig1', 'fail', 3, '2025-01-01', '2025-01-01')"
+            )
+            conn.commit()
+            conn.close()
+
+            cli = RecoveryCLI()
+            result = cli.reset_to_checkpoint(tmp)
+        self.assertTrue(result["reset"])
+        self.assertEqual(result["cleared"]["failed_attempts"], 1)
+
+    def test_reset_resets_gate(self):
+        """Reset rewrites resume gate file"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            cli = RecoveryCLI()
+            result = cli.reset_to_checkpoint(tmp)
+        self.assertTrue(result["reset"])
+        self.assertEqual(result["cleared"]["gate_reset"], 1)
+
+
+class TestInspectCorruption(unittest.TestCase):
+    def setUp(self):
+        self._egtsr_home_tmp = tempfile.TemporaryDirectory()
+        self._orig_egtsr_home = os.environ.get("EGTSR_HOME")
+        os.environ["EGTSR_HOME"] = self._egtsr_home_tmp.name
+
+    def tearDown(self):
+        if self._orig_egtsr_home is not None:
+            os.environ["EGTSR_HOME"] = self._orig_egtsr_home
+        else:
+            os.environ.pop("EGTSR_HOME", None)
+        self._egtsr_home_tmp.cleanup()
+
+    def test_inspect_no_db(self):
+        """Inspect returns error when DB is missing"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cli = RecoveryCLI()
+            result = cli.inspect_corruption(tmp)
+        self.assertEqual(result["integrity"], "error")
+        self.assertTrue(len(result["anomalies"]) > 0)
+
+    def test_inspect_healthy_db(self):
+        """Inspect on healthy DB returns ok"""
+        with tempfile.TemporaryDirectory() as tmp:
+            _make_valid_egtsr(tmp)
+            cli = RecoveryCLI()
+            result = cli.inspect_corruption(tmp)
+        self.assertEqual(result["integrity"], "ok")
+        self.assertEqual(result["anomalies"], [])
+        # All tables should be readable
+        for table, count in result["tables"].items():
+            self.assertGreaterEqual(count, 0, f"table {table} unreadable")
+
+    def test_inspect_corrupt_db(self):
+        """Inspect detects corrupt DB"""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            # Corrupt the DB
+            with open(db_path, "w") as f:
+                f.write("not a sqlite database!!!")
+            cli = RecoveryCLI()
+            result = cli.inspect_corruption(tmp)
+        self.assertNotEqual(result["integrity"], "ok")
+
+    def test_inspect_orphaned_obligations(self):
+        """Inspect detects orphaned obligations"""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, egtsr_dir, db_path = _make_valid_egtsr(tmp)
+            conn = sqlite3.connect(db_path)
+            conn.execute("PRAGMA foreign_keys=OFF;")
+            conn.execute(
+                "INSERT INTO obligations "
+                "(id, session_id, source, statement, priority, status, created_at, updated_at) "
+                "VALUES ('o1', 'nonexistent', 'user', 'test', 50, 'active', '2025-01-01', '2025-01-01')"
+            )
+            conn.commit()
+            conn.close()
+
+            cli = RecoveryCLI()
+            result = cli.inspect_corruption(tmp)
+        self.assertTrue(
+            any("orphaned obligations" in a for a in result["anomalies"])
+        )
+
+
 class TestHealthChecker(unittest.TestCase):
     """HealthChecker tests — these pass egtsr_dir directly, no locator needed."""
 

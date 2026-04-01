@@ -3,12 +3,26 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from datetime import datetime, timezone
 
 from egtsr_runtime.constants import (
     DB_FILENAME,
     LAST_GOOD_CAPSULE,
     PHASE1_HOOKS,
     RESUME_GATE,
+)
+
+_ALL_TABLES = (
+    "sessions",
+    "repo_state",
+    "obligations",
+    "evidence",
+    "assertions",
+    "invalidation_tickets",
+    "attempt_families",
+    "verify_results",
+    "capsules",
+    "events",
 )
 
 _EXPECTED_HOOK_COMMANDS = {
@@ -132,6 +146,159 @@ class RecoveryCLI:
                 "ok": False,
                 "detail": f"hooks config invalid ({hooks_path}): {exc}",
             }
+
+    def reset_to_checkpoint(self, repo_root: str) -> dict:
+        """Reset runtime state to last clean checkpoint.
+
+        Clears stale invalidation tickets, resets gate state, and removes
+        non-active session data.  This is a destructive operation — callers
+        should confirm with the user first.
+
+        Returns: {"reset": True/False, "detail": str, "cleared": {...}}
+        """
+        from egtsr_runtime.runtime_locator import resolve_project_dir
+
+        egtsr_dir = str(resolve_project_dir(repo_root))
+        db_path = os.path.join(egtsr_dir, DB_FILENAME)
+
+        if not os.path.exists(db_path):
+            return {"reset": False, "detail": f"DB not found: {db_path}", "cleared": {}}
+
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute("PRAGMA foreign_keys=ON;")
+        except Exception as exc:
+            return {"reset": False, "detail": f"Cannot open DB: {exc}", "cleared": {}}
+
+        cleared: dict[str, int] = {}
+        try:
+            # Clear stale invalidation tickets
+            cur = conn.execute(
+                "DELETE FROM invalidation_tickets WHERE status = 'stale'"
+            )
+            cleared["stale_tickets"] = cur.rowcount
+
+            # Clear failed attempt families
+            cur = conn.execute(
+                "DELETE FROM attempt_families WHERE last_outcome = 'fail'"
+            )
+            cleared["failed_attempts"] = cur.rowcount
+
+            # Reset gate file to empty
+            gate_path = os.path.join(egtsr_dir, RESUME_GATE)
+            if os.path.exists(gate_path):
+                with open(gate_path, "w") as f:
+                    json.dump({"reset_at": datetime.now(timezone.utc).isoformat()}, f)
+                cleared["gate_reset"] = 1
+            else:
+                cleared["gate_reset"] = 0
+
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            conn.close()
+            return {"reset": False, "detail": f"Reset failed: {exc}", "cleared": cleared}
+        finally:
+            conn.close()
+
+        return {"reset": True, "detail": "Checkpoint reset complete", "cleared": cleared}
+
+    def inspect_corruption(self, repo_root: str) -> dict:
+        """Run DB integrity checks and anomaly detection.
+
+        Returns: {"integrity": str, "tables": {...}, "anomalies": [...]}
+        """
+        from egtsr_runtime.runtime_locator import resolve_project_dir
+
+        egtsr_dir = str(resolve_project_dir(repo_root))
+        db_path = os.path.join(egtsr_dir, DB_FILENAME)
+
+        if not os.path.exists(db_path):
+            return {
+                "integrity": "error",
+                "detail": f"DB not found: {db_path}",
+                "tables": {},
+                "anomalies": ["DB file missing"],
+            }
+
+        try:
+            conn = sqlite3.connect(db_path)
+        except Exception as exc:
+            return {
+                "integrity": "error",
+                "detail": f"Cannot open DB: {exc}",
+                "tables": {},
+                "anomalies": [f"Cannot open DB: {exc}"],
+            }
+
+        anomalies: list[str] = []
+
+        # PRAGMA integrity_check
+        try:
+            rows = conn.execute("PRAGMA integrity_check;").fetchall()
+            integrity = rows[0][0] if rows else "unknown"
+            if integrity != "ok":
+                anomalies.append(f"integrity_check: {integrity}")
+        except Exception as exc:
+            integrity = f"error: {exc}"
+            anomalies.append(f"integrity_check failed: {exc}")
+
+        # Table row counts
+        tables: dict[str, int] = {}
+        for table in _ALL_TABLES:
+            try:
+                row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()  # noqa: S608
+                tables[table] = row[0] if row else 0
+            except Exception:
+                tables[table] = -1
+                anomalies.append(f"table '{table}' unreadable")
+
+        # Anomaly detection: orphaned rows
+        try:
+            orphan_count = conn.execute(
+                "SELECT COUNT(*) FROM obligations "
+                "WHERE session_id NOT IN (SELECT id FROM sessions)"
+            ).fetchone()
+            if orphan_count and orphan_count[0] > 0:
+                anomalies.append(
+                    f"orphaned obligations: {orphan_count[0]} rows with missing session"
+                )
+        except Exception:
+            pass
+
+        try:
+            orphan_evidence = conn.execute(
+                "SELECT COUNT(*) FROM evidence "
+                "WHERE session_id NOT IN (SELECT id FROM sessions)"
+            ).fetchone()
+            if orphan_evidence and orphan_evidence[0] > 0:
+                anomalies.append(
+                    f"orphaned evidence: {orphan_evidence[0]} rows with missing session"
+                )
+        except Exception:
+            pass
+
+        # Anomaly detection: sessions stuck in 'active' with old timestamps
+        try:
+            stuck = conn.execute(
+                "SELECT COUNT(*) FROM sessions "
+                "WHERE status = 'active' "
+                "AND updated_at < datetime('now', '-24 hours')"
+            ).fetchone()
+            if stuck and stuck[0] > 0:
+                anomalies.append(
+                    f"stuck sessions: {stuck[0]} active sessions older than 24h"
+                )
+        except Exception:
+            pass
+
+        conn.close()
+
+        return {
+            "integrity": integrity,
+            "tables": tables,
+            "anomalies": anomalies,
+        }
 
     @staticmethod
     def _has_registered_command(entries, expected_command: str) -> bool:

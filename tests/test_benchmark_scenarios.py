@@ -9,10 +9,13 @@ from egtsr_runtime.benchmarks import (
     BenchmarkReporter,
     BenchmarkRunner,
     ForcedSplitScenario,
+    GateCheck,
     GoNoGoEvaluator,
+    RegressionGateReport,
     RepeatedFailureScenario,
     ScenarioResult,
     StaleInjectionScenario,
+    generate_judgment_report,
 )
 
 
@@ -147,6 +150,98 @@ class TestBenchmarkScenarios(unittest.TestCase):
 
         self.assertTrue(memo.strip())
         self.assertTrue(memo.startswith("#"))
+
+    def test_markdown_report_structure(self):
+        """Markdown report contains summary table, Go/No-Go section, and detailed results"""
+        results = self.runner.run_all()
+        comparison = self.runner.run_same_budget_comparison()
+        verdict = self.evaluator.evaluate(results)
+
+        md = self.reporter.generate_markdown_report(results, comparison, verdict)
+
+        self.assertIn("# EGTSR Benchmark Report", md)
+        self.assertIn("## Summary", md)
+        self.assertIn("| Scenario | Raw | Naive | EGTSR | Delta |", md)
+        self.assertIn("## Go/No-Go Judgment", md)
+        self.assertIn("**Verdict**:", md)
+        self.assertIn("### Criteria", md)
+        self.assertIn("## Detailed Results", md)
+        for name in ("forced_split", "stale_injection", "repeated_failure"):
+            self.assertIn(f"### {name}", md)
+
+    def test_markdown_report_verdict_labels(self):
+        """Markdown report maps verdict strings to proper labels"""
+        results = [
+            ScenarioResult(
+                name="test",
+                executed=True,
+                audit_pass=True,
+                token_count=50,
+                resume_safety=True,
+                details={"raw_token_count": 200, "token_savings_pct": 0.75},
+            ),
+        ]
+        comparison = {"test": {"raw": 200, "naive": 150, "egtsr": 50}}
+
+        md = self.reporter.generate_markdown_report(results, comparison, "continue")
+        self.assertIn("**Verdict**: Continue", md)
+
+        md = self.reporter.generate_markdown_report(results, comparison, "shrink")
+        self.assertIn("**Verdict**: Shrink", md)
+
+    def test_judgment_report_structure(self):
+        """generate_judgment_report produces valid markdown with check table"""
+        report = RegressionGateReport(
+            timestamp="2026-04-01T12:00:00Z",
+            overall_pass=False,
+            checks=[
+                GateCheck(
+                    name="functional.test.audit",
+                    passed=True,
+                    actual=1,
+                    threshold=1,
+                    message="Audit passed for test",
+                ),
+                GateCheck(
+                    name="latency.p95_absolute",
+                    passed=False,
+                    actual=250.0,
+                    threshold=200.0,
+                    message="p95=250.0ms (max=200.0ms)",
+                ),
+            ],
+        )
+
+        md = generate_judgment_report(report)
+
+        self.assertIn("# Regression Gate Judgment", md)
+        self.assertIn("**Overall**: FAIL", md)
+        self.assertIn("functional.test.audit", md)
+        self.assertIn("PASS", md)
+        self.assertIn("FAIL", md)
+        self.assertIn("## Failed Checks", md)
+        self.assertIn("latency.p95_absolute", md)
+
+    def test_judgment_report_all_pass(self):
+        """generate_judgment_report with all checks passing has no Failed Checks section"""
+        report = RegressionGateReport(
+            timestamp="2026-04-01T12:00:00Z",
+            overall_pass=True,
+            checks=[
+                GateCheck(
+                    name="functional.test.audit",
+                    passed=True,
+                    actual=1,
+                    threshold=1,
+                    message="Audit passed",
+                ),
+            ],
+        )
+
+        md = generate_judgment_report(report)
+
+        self.assertIn("**Overall**: PASS", md)
+        self.assertNotIn("## Failed Checks", md)
 
     def _db_path(self, name: str) -> str:
         return str(Path(self.tmp_dir.name) / f"{name}.sqlite3")

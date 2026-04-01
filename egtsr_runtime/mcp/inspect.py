@@ -79,3 +79,85 @@ class InspectService:
             "required_rechecks": gate.required_rechecks,
             "query_timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
+    def list_sessions(self) -> dict:
+        """Return all sessions ordered by creation time. Read-only."""
+        rows = self._uow.conn.execute(
+            "SELECT id, repo_root, branch, status, created_at "
+            "FROM sessions ORDER BY created_at DESC"
+        ).fetchall()
+        return {
+            "sessions": [
+                {
+                    "id": r["id"],
+                    "repo_root": r["repo_root"],
+                    "branch": r["branch"],
+                    "status": r["status"],
+                    "created_at": r["created_at"],
+                }
+                for r in rows
+            ],
+            "count": len(rows),
+            "query_timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def inspect_verify(self, session_id: str) -> dict:
+        """Return verify results and attempt families. Read-only."""
+        results = self._uow.verify_results.list_for_session(session_id)
+        families = self._uow.attempt_families.list_for_session(session_id)
+        return {
+            "session_id": session_id,
+            "verify_count": len(results),
+            "verify_results": [
+                {
+                    "id": r.id,
+                    "phase": r.phase.value if hasattr(r.phase, "value") else str(r.phase),
+                    "outcome": r.outcome,
+                    "affected_obligation_ids": r.affected_obligation_ids,
+                    "excerpt": r.excerpt,
+                    "created_at": r.created_at,
+                }
+                for r in results
+            ],
+            "attempt_family_count": len(families),
+            "attempt_families": [
+                {
+                    "id": f.id,
+                    "obligation_id": f.obligation_id,
+                    "signature": f.signature,
+                    "fail_count": f.fail_count,
+                    "last_outcome": f.last_outcome,
+                    "summary": f.summary,
+                    "created_at": f.created_at,
+                }
+                for f in families
+            ],
+            "query_timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def inspect_summary(self, session_id: str) -> dict:
+        """Return aggregate summary for a session. Read-only."""
+        obls = self.inspect_obligations(session_id)
+        stale = self.inspect_stale(session_id)
+        capsule = self.inspect_capsule(session_id)
+        resume = self.resume_status(session_id)
+        verify = self.inspect_verify(session_id)
+        return {
+            "session_id": session_id,
+            "obligations": {"total": obls["total_count"], "open": obls["open_count"]},
+            "stale": {"live": stale["live_count"], "stale": stale["stale_count"]},
+            "capsule": {
+                "count": capsule["capsule_count"],
+                "latest_phase": capsule["latest"]["phase"] if capsule["latest"] else None,
+                "latest_audit_pass": capsule["latest"]["audit_pass"] if capsule["latest"] else None,
+            },
+            "resume_gate": {
+                "edit_blocked": resume["edit_blocked"],
+                "reason": resume["reason"],
+            },
+            "verify": {
+                "result_count": verify["verify_count"],
+                "family_count": verify["attempt_family_count"],
+            },
+            "query_timestamp": datetime.now(timezone.utc).isoformat(),
+        }

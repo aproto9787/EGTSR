@@ -230,6 +230,38 @@ class RegressionGate:
         )]
 
 
+def generate_judgment_report(report: RegressionGateReport) -> str:
+    """Generate markdown judgment report explaining each gate check."""
+    status = "PASS" if report.overall_pass else "FAIL"
+    lines = [
+        "# Regression Gate Judgment",
+        "",
+        f"**Overall**: {status}",
+        f"**Timestamp**: {report.timestamp}",
+        "",
+        "## Check Details",
+        "| Check | Result | Actual | Threshold | Note |",
+        "|-------|--------|--------|-----------|------|",
+    ]
+    for check in report.checks:
+        mark = "\u2705 PASS" if check.passed else "\u274c FAIL"
+        lines.append(
+            f"| {check.name} | {mark} | {check.actual} | {check.threshold} | {check.message} |"
+        )
+    lines.append("")
+
+    failed = [c for c in report.checks if not c.passed]
+    if failed:
+        lines.append("## Failed Checks")
+        for c in failed:
+            lines.append(
+                f"- **{c.name}**: {c.message} (actual={c.actual}, threshold={c.threshold})"
+            )
+        lines.append("")
+
+    return "\n".join(lines).strip() + "\n"
+
+
 def load_baseline(path: str) -> BaselineReport | None:
     """Load a baseline report from a JSON file."""
     p = Path(path)

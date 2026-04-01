@@ -33,3 +33,4 @@ scripts/
 *.egg-info/
 __pycache__/
 *.pyc
+uv.lock

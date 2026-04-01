@@ -31,7 +31,7 @@ class TestPluginStructure(unittest.TestCase):
             data["description"],
             "Execution-Grounded Task-State Runtime — obligation tracking, stale quarantine, and resume safety for Claude Code",
         )
-        self.assertEqual(data["version"], "0.2.0")
+        self.assertEqual(data["version"], "0.3.0")
         self.assertEqual(data["author"], {"name": "argoss"})
         self.assertEqual(data["homepage"], "https://github.com/aproto9787/EGTSR")
         self.assertEqual(data["repository"], "https://github.com/aproto9787/EGTSR")
@@ -49,7 +49,7 @@ class TestPluginStructure(unittest.TestCase):
             data["metadata"],
             {
                 "description": "Execution-Grounded Task-State Runtime for Claude Code — obligation-first, freshness-gated, SQLite-backed task state runtime",
-                "version": "0.2.0",
+                "version": "0.3.0",
             },
         )
         self.assertEqual(len(data["plugins"]), 1)
@@ -59,7 +59,7 @@ class TestPluginStructure(unittest.TestCase):
                 "name": "egtsr",
                 "source": "./",
                 "description": "EGTSR runtime plugin — hooks, MCP server, and skills for task-state safety",
-                "version": "0.2.0",
+                "version": "0.3.0",
             },
         )
 

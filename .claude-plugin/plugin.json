@@ -1,7 +1,7 @@
 {
   "name": "egtsr",
   "description": "Execution-Grounded Task-State Runtime — obligation tracking, stale quarantine, and resume safety for Claude Code",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "argoss"
   },

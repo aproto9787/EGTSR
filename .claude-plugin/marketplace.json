@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Execution-Grounded Task-State Runtime for Claude Code — obligation-first, freshness-gated, SQLite-backed task state runtime",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "plugins": [
     {
       "name": "egtsr",
       "source": "./",
       "description": "EGTSR runtime plugin — hooks, MCP server, and skills for task-state safety",
-      "version": "0.2.0"
+      "version": "0.3.0"
     }
   ]
 }

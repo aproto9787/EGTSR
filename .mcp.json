@@ -1,10 +1,11 @@
 {
   "mcpServers": {
     "egtsr": {
-      "command": "bash",
-      "args": ["-c", "cd \"${CLAUDE_PLUGIN_ROOT:-.}\" && exec python3 -m mcp_server"],
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/run_mcp.py"],
       "env": {
-        "EGTSR_HOME": "${CLAUDE_PLUGIN_DATA:-.egtsr}"
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
+        "EGTSR_HOME": "${CLAUDE_PLUGIN_DATA}"
       }
     }
   }

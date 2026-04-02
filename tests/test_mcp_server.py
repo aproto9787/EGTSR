@@ -155,9 +155,9 @@ class TestMCPServer(unittest.TestCase):
         server = self._make_server()
         response = server._handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
 
-        self.assertEqual(response["result"]["protocolVersion"], "2024-11-05")
+        self.assertEqual(response["result"]["protocolVersion"], "2025-03-26")
         self.assertEqual(response["result"]["serverInfo"]["name"], "egtsr")
-        self.assertEqual(response["result"]["serverInfo"]["version"], "0.1.1")
+        self.assertEqual(response["result"]["serverInfo"]["version"], "0.3.0")
         self.assertIn("tools", response["result"]["capabilities"])
 
     def test_stdio_response_uses_content_length_framing(self) -> None:
@@ -173,7 +173,7 @@ class TestMCPServer(unittest.TestCase):
         expected_body = json.dumps(response, ensure_ascii=False).encode("utf-8")
         self.assertEqual(body_length, len(expected_body))
         self.assertEqual(response["id"], 1)
-        self.assertEqual(response["result"]["serverInfo"]["version"], "0.1.1")
+        self.assertEqual(response["result"]["serverInfo"]["version"], "0.3.0")
 
     def test_stdio_response_content_length_matches_json_body_bytes(self) -> None:
         raw_output = self._run_server_with_framed_requests(

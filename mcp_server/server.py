@@ -175,9 +175,9 @@ class EGTSRMCPServer:
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": "2025-03-26",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "egtsr", "version": "0.1.1"},
+                "serverInfo": {"name": "egtsr", "version": "0.3.0"},
             },
         }
 

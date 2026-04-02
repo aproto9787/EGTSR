@@ -11,6 +11,7 @@ from egtsr_runtime.hooks.envelopes import HookEnvelope
 
 _REQUIRED_FIELDS = ("hook_event_name", "session_id", "cwd")
 _PLUGIN_CACHE_MARKER = "/.claude/plugins/cache/"
+_PLUGIN_MARKETPLACE_MARKER = "/.claude/plugins/marketplaces/"
 _PROJECTS_MARKER = "/.claude/projects/"
 
 
@@ -53,11 +54,10 @@ def parse_hook_stdin(raw_text: str) -> HookEnvelope:
 
 
 def normalize_hook_cwd(cwd: str, transcript_path: Any) -> str:
-    if _PLUGIN_CACHE_MARKER not in cwd:
-        return cwd
-
     fallback_cwd = _extract_cwd_from_transcript_path(transcript_path)
-    return fallback_cwd or cwd
+    if fallback_cwd and fallback_cwd != cwd:
+        return fallback_cwd
+    return cwd
 
 
 def _extract_cwd_from_transcript_path(transcript_path: Any) -> str | None:

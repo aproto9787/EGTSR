@@ -5,6 +5,13 @@ Adds its own directory to sys.path so mcp_server and egtsr_runtime are importabl
 import sys
 import os
 
+# Force unbuffered stdout/stderr for MCP stdio transport
+os.environ["PYTHONUNBUFFERED"] = "1"
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(write_through=True)
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(write_through=True)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mcp_server.server import main

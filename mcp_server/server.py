@@ -77,6 +77,7 @@ class EGTSRMCPServer:
         """Main loop: read JSON-RPC from stdin, write responses to stdout."""
         input_stream = stdin or sys.stdin
         output_stream = stdout or sys.stdout
+        self._use_content_length = True  # auto-detected on first message
 
         while True:
             request = self._read_message(input_stream)
@@ -85,7 +86,10 @@ class EGTSRMCPServer:
             response = self._handle_request(request)
             if response is not None:
                 body = json.dumps(response, ensure_ascii=False)
-                output_stream.write(f"Content-Length: {len(body.encode('utf-8'))}\r\n\r\n{body}")
+                if self._use_content_length:
+                    output_stream.write(f"Content-Length: {len(body.encode('utf-8'))}\r\n\r\n{body}")
+                else:
+                    output_stream.write(body + "\n")
                 output_stream.flush()
 
     def _read_message(self, stream: TextIO) -> dict[str, Any] | None:
@@ -98,6 +102,7 @@ class EGTSRMCPServer:
                 continue
 
             if stripped.lower().startswith("content-length:"):
+                self._use_content_length = True
                 try:
                     content_length = int(stripped.split(":", 1)[1].strip())
                 except ValueError:
@@ -127,6 +132,7 @@ class EGTSRMCPServer:
                     }
                 return request if isinstance(request, dict) else {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "Invalid Request"}}
 
+            self._use_content_length = False
             try:
                 request = json.loads(stripped)
             except json.JSONDecodeError:

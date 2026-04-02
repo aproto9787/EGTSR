@@ -57,8 +57,10 @@ def _try_daemon(hook_name: str, raw_text: str) -> dict | None:
         if not isinstance(cwd, str) or not cwd:
             return None
 
+        from egtsr_runtime.hooks.parser import normalize_hook_cwd
         from egtsr_runtime.runtime_locator import resolve_project_dir
 
+        cwd = normalize_hook_cwd(cwd, payload.get("transcript_path"))
         egtsr_dir = str(resolve_project_dir(cwd))
 
         if not _is_daemon_enabled(egtsr_dir):

@@ -123,6 +123,10 @@ class SqliteInvalidationRepository:
     def _from_row(row: sqlite3.Row) -> InvalidationTicket:
         keys = row.keys() if hasattr(row, "keys") else []
         caused_by = row["caused_by_ticket_id"] if "caused_by_ticket_id" in keys else None
+        try:
+            status = InvalidationStatus(row["status"])
+        except ValueError:
+            status = InvalidationStatus.CLOSED
         return InvalidationTicket(
             id=row["id"],
             session_id=row["session_id"],
@@ -130,7 +134,7 @@ class SqliteInvalidationRepository:
             subject_id=row["subject_id"],
             trigger_kind=row["trigger_kind"],
             trigger_ref=row["trigger_ref"],
-            status=InvalidationStatus(row["status"]),
+            status=status,
             metadata=load_dict(row["metadata_json"]),
             caused_by_ticket_id=caused_by,
             created_at=row["created_at"],
